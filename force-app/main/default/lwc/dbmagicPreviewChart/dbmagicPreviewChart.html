@@ -1,0 +1,28 @@
+<template>
+    <c-chart type={chartDetails.style} responsive="true" stylecss="position: relative; margin: auto;">
+        <c-title text={chartTitle}></c-title>
+        <c-dataset labels={chartLabels}>
+            <template for:each={chartDatasets} for:item="dataset">
+                <c-data label={dataset.label} detail={dataset.data} backgroundcolor={dataset.colour} borderwidth="1"
+                    key={dataset.data}></c-data>
+            </template>
+        </c-dataset>
+        <template if:true={linearAxis}>
+            <c-cartesian-linear-axis axis={linearAxis} title-labelstring={linearLabel} title-display ticks-beginatzero
+                stacked={stacked} ticks-callback={ticksCallback}>
+            </c-cartesian-linear-axis>
+        </template>
+        <template if:true={categoryAxis}>
+            <c-cartesian-category-axis axis={categoryAxis} title-labelstring={categoryLabel} title-display
+                stacked={stacked}>
+            </c-cartesian-category-axis>
+        </template>
+         <c-legend position="bottom" display={displayLegend}></c-legend>
+        <template if:true={dontAnimate}>
+            <c-animation duration=1></c-animation>
+        </template>
+    </c-chart>
+    <template if:true={displayLegend}>
+        <p class="slds-text-title slds-text-color_weak slds-align_absolute-center">{legendLabel}</p>
+    </template>
+</template>

@@ -1,0 +1,100 @@
+<template>
+    <div class="fullPage">
+        <div class="appContainer slds-card slds-grid slds-grid_vertical">
+            <div class="appHeader">
+                <div class="slds-page-header">
+                    <div class="slds-page-header__row">
+                        <div class="slds-page-header__col-title">
+                            <div class="slds-media slds-media_center">
+                                <div class="slds-media__figure">
+                                    <lightning-icon icon-name="utility:magicwand" class="magicIcon"></lightning-icon>
+                                </div>
+                                <div class="slds-media__body">
+                                    <div class="slds-page-header__name">
+                                        <div class="slds-page-header__name-title">
+                                            <h1>
+                                                <span class="slds-page-header__title slds-truncate">Dashboard Magic
+                                                    2</span>
+                                                <span>This time, it's personal</span>
+                                            </h1>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="slds-page-header__col-actions">
+                            <div class="slds-page-header__controls">
+                                <div class="slds-page-header__control">
+                                    <slot name="actions"></slot>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+                <div class="appToolbar slds-builder-toolbar slds-p-vertical_x-small slds-grid"
+                    role="toolbar">
+                    <div class="slds-builder-toolbar__item-group slds-col_bump-right">
+                        <lightning-button-icon-stateful icon-name="utility:toggle_panel_left" selected={menuPanelIsOpen}
+                            onclick={handleMenuPanelToggleClick}></lightning-button-icon-stateful>
+                        <lightning-button-group class="slds-p-horizontal_xx-small">
+                            <lightning-button-icon icon-name="utility:undo"></lightning-button-icon>
+                            <lightning-button-icon icon-name="utility:redo"></lightning-button-icon>
+                        </lightning-button-group>
+                    </div>
+                    <div class="slds-builder-toolbar__item-group">
+                        <lightning-button-icon-stateful icon-name="utility:preview" selected={menuPanelIsOpen}
+                            onclick={handleMenuPanelToggleClick}></lightning-button-icon-stateful>
+                    </div>
+                </div>
+            </div>
+
+            <div
+                class="appBody slds-card__body slds-card__body_inner slds-col slds-grid slds-wrap slds-p-vertical_none slds-m-vertical_none">
+                <div class="menuPanel slds-border_right">
+                    <nav class="slds-nav-vertical" aria-label="Dashboard Magic Menu">
+                        <template for:each={menuPanelOptions} for:item="option">
+                            <div class="slds-nav-vertical__section" key={option.name} data-name={option.name}
+                                onclick={handleMenuPanelOptionClick}>
+                                <div class={option.navItemClass}>
+                                    <span class="slds-nav-vertical__action slds-p-left_x-small">
+                                        <lightning-icon icon-name={option.iconName} size="small"
+                                            class="slds-m-right_x-small"></lightning-icon>
+                                        {option.label}
+                                    </span>
+                                </div>
+                            </div>
+                        </template>
+                    </nav>
+                </div>
+
+                <!-- <div class={menuPanelClass}>
+                    <div class="slds-panel__body">
+                        <nav class="slds-nav-vertical" aria-label="Dashboard Magic Menu">
+                            <template for:each={menuPanelOptions} for:item="option">
+                                <div class="slds-nav-vertical__section" key={option.name} data-name={option.name}
+                                    onclick={handleMenuPanelOptionClick}>
+                                    <div class={option.navItemClass}>
+                                        <span class="slds-nav-vertical__action slds-p-left_x-small">
+                                            <lightning-icon icon-name={option.iconName} size="small"
+                                                class="slds-m-right_x-small"></lightning-icon>
+                                            {option.label}
+                                        </span>
+                                    </div>
+                                </div>
+                            </template>
+                        </nav>
+                    </div>
+                </div> -->
+
+                <div class="activePanel slds-col slds-p-around_xxx-small">
+                    <template lwc:if={activePanelIs.new}>
+                        <div class="datasetBuilderContainer">
+                            <c-dbm-dataset-builder></c-dbm-dataset-builder>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </div>
+    </div>
+</template>
