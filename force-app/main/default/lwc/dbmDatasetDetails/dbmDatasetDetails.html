@@ -1,18 +1,31 @@
 <template>
+    <!-- {reportDetailsString} -->
+
     <!-- <p class="slds-text-heading_medium">Report Details</p> -->
     <lightning-input label="Enter Report Name" name="reportName" value={reportDetails.reportName} required
         onchange={handleReportDetailChange}>
     </lightning-input>
-    <div class="metricContainer slds-grid slds-gutters">
+    <div class="metricContainer slds-grid slds-gutters slds-wrap">
         <div class="slds-col slds-size_1-of-2">
-            <lightning-input label="Enter Metric Name" name="metricName" value={reportDetails.metricName}
+            <lightning-combobox label="Select Metric Name" options={metricNames.options} name="metricName"
+                value={reportDetails.metricName} onchange={handleReportDetailChange}>
+            </lightning-combobox>
+
+            <!-- <lightning-input label="Enter Metric Name" name="metricName" value={reportDetails.metricName}
                 onchange={handleReportDetailChange}>
-            </lightning-input>
+            </lightning-input> -->
         </div>
         <div class="slds-col slds-size_1-of-2">
             <lightning-combobox label="Select Metric Type" name="metricType" options={metricTypes.options}
                 value={reportDetails.metricType} onchange={handleReportDetailChange}></lightning-combobox>
         </div>
+        <template lwc:if={reportDetails.metricIsCustom}>
+            <div class="slds-col slds-size_1-of-2">
+                <lightning-input label="Custom Metric Name" name="customMetricName"
+                    value={reportDetails.customMetricName} onchange={handleReportDetailChange} required>
+                </lightning-input>
+            </div>
+        </template>
     </div>
 
     <form class="numGroupingsContainer">
@@ -33,28 +46,34 @@
                                 field-level-help="Your grouping entries can come from multiple data sources, from simply entering them by hand to pulling user names, picklist option sets, and more. You'll customize your grouping entries on the next screen."
                                 required></lightning-combobox> -->
                     <c-fsc_combobox label="Select Data Source" data-grouping={grouping.groupingName} data-index={index}
-                        options={dataSourceOptions} name="dataSource" value={grouping.dataSource}
+                        options={dataSources.options} name="dataSource" value={grouping.dataSource}
                         disabled={grouping.isDisabled} onchange={handleGroupingDetailChange}
                         field-level-help="Your grouping entries can come from multiple data sources, from simply entering them by hand to pulling user names, picklist option sets, and more. You'll customize your grouping entries on the next screen."
-                        required prevent-clear-intercept={preventDataSourceClear}></c-fsc_combobox>
+                        required notify-on-clear onclearrequest={handleGroupingPropertyClearRequest}
+                        data-confirm-clear-message="Changing the data source will clear all entries for this grouping. Proceed?"></c-fsc_combobox>
 
                     <template lwc:if={grouping.dataSourceIs.sobject}>
-                        <c-fsc_object-field-selector field-label="Which Field Do You Want to Display?"
-                            data-index={index} data-grouping={grouping.groupingName} field-value={grouping.fieldName}
+                        <!-- field-label="Which Field Do You Want to Display?" -->
+                        <c-fsc_object-field-selector hide-field-picklist data-index={index}
+                            data-grouping={grouping.groupingName} field-value={grouping.fieldName}
                             object-value={grouping.objectName} default-to-name-field required
-                            disabled={grouping.isDisabled}
-                            onchange={handleGroupingObjectFieldChange}></c-fsc_object-field-selector>
+                            disabled={grouping.isDisabled} onchange={handleGroupingObjectFieldChange} notify-on-clear
+                            onobjectclearrequest={handleGroupingPropertyObjectClearRequest}
+                            onfieldclearrequest={handleGroupingPropertyFieldClearRequest}
+                            data-confirm-clear-message="Changing the source object will clear all entries for this grouping. Proceed?"></c-fsc_object-field-selector>
                     </template>
                     <template lwc:if={grouping.dataSourceIs.picklist}>
                         <c-fsc_object-field-selector object-label="Select Object to Pull Picklist Values From"
                             data-index={index} data-grouping={grouping.groupingName} field-label="Select Picklist Field"
                             available-field-types="Picklist" field-value={grouping.fieldName}
                             object-value={grouping.objectName} required disabled={grouping.isDisabled}
-                            onchange={handleGroupingObjectFieldChange}></c-fsc_object-field-selector>
+                            onchange={handleGroupingObjectFieldChange} notify-on-clear
+                            onobjectclearrequest={handleGroupingPropertyObjectClearRequest}
+                            onfieldclearrequest={handleGroupingPropertyFieldClearRequest}
+                            data-confirm-clear-message="Changing the picklist source will clear all entries for this grouping. Proceed?"></c-fsc_object-field-selector>
                     </template>
                 </div>
             </template>
         </div>
     </form>
-    {reportDetailsString}
 </template>

@@ -38,8 +38,8 @@
                         <lightning-button-icon-stateful icon-name="utility:toggle_panel_left" selected={menuPanelIsOpen}
                             onclick={handleMenuPanelToggleClick}></lightning-button-icon-stateful>
                         <lightning-button-group class="slds-p-horizontal_xx-small">
-                            <lightning-button-icon icon-name="utility:undo"></lightning-button-icon>
-                            <lightning-button-icon icon-name="utility:redo"></lightning-button-icon>
+                            <lightning-button-icon icon-name="utility:undo" disabled></lightning-button-icon>
+                            <lightning-button-icon icon-name="utility:redo" disabled></lightning-button-icon>
                         </lightning-button-group>
                     </div>
                     <div class="slds-builder-toolbar__item-group">
@@ -90,7 +90,7 @@
                 <div class="activePanel slds-col slds-p-around_xxx-small">
                     <template lwc:if={activePanelIs.new}>
                         <div class="datasetBuilderContainer">
-                            <c-dbm-dataset-builder></c-dbm-dataset-builder>
+                            <c-dbm-dataset-builder change-log={changeLog}></c-dbm-dataset-builder>
                         </div>
                     </template>
                 </div>

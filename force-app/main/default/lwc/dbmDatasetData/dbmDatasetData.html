@@ -1,0 +1,43 @@
+<template>
+    <!-- {reportDetailsString} -->
+    <div class="slds-theme_default">
+        <!-- BEGIN DATA ENTRY TABLE -->
+        <div class="tableContainer">
+            <table class="slds-p-vertical_x-small">
+                <template lwc:if={has2Groupings}>
+                    <tr class="firstRow">
+                        <th class="blankCell">
+                        </th>
+                        <template for:each={columnHeaders} for:item="col" for:index="colIndex">
+                            <th scope="col" class="columnHeader slds-truncate slds-text-link_reset" key={col}
+                                data-col-index={colIndex} onmouseenter={handleHeaderMouseEnter}
+                                onmouseleave={handleHeaderMouseLeave} onmousedown={handleHeaderMouseDown}
+                                onmouseup={handleHeaderMouseUp}>
+                                <span class="slds-p-around_xx-small slds-truncate" title={col.value}>{col.value}</span>
+                            </th>
+                        </template>
+                    </tr>
+                </template>
+                <template for:each={rows} for:item="row" for:index="rowIndex">
+                    <tr key={row.header} data-row-index={rowIndex}>
+                        <th scope="row" class="rowHeader slds-truncate slds-text-link_reset" data-row-index={rowIndex}
+                            onmouseenter={handleHeaderMouseEnter} onmouseleave={handleHeaderMouseLeave}
+                            onmousedown={handleHeaderMouseDown} onmouseup={handleHeaderMouseUp}>
+                            <span class="slds-p-around_xx-small" title={row.header}>{row.header}</span>
+                        </th>
+                        <template for:each={row.data} for:item="cell" for:index="colIndex">
+                            <td key={cell.index}>
+                                <lightning-input value={cell.value} class="inputCell" type="number"
+                                    formatter={reportDetails.metricType} label="Enter Value" variant="label-hidden"
+                                    data-row-index={rowIndex} data-col-index={colIndex} data-null-value={cell.nullValue}
+                                    oncommit={handleCellValueChange} onmouseenter={handleCellMouseEnter}
+                                    onmouseleave={handleCellMouseLeave} onmousedown={handleCellMouseDown}
+                                    onmouseup={handleCellMouseUp}></lightning-input>
+                            </td>
+                        </template>
+                    </tr>
+                </template>
+            </table>
+        </div>
+    </div>
+</template>

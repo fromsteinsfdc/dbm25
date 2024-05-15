@@ -1,0 +1,65 @@
+:host {
+    --table-column-width: 10em;
+}
+
+table {
+    table-layout: fixed;
+    width: calc(var(--table-column-width) * 2);
+}
+
+th {
+    width: var(--table-column-width);
+    max-width: var(--table-column-width);
+}
+
+/* th span {
+    text-overflow: ellipsis;
+    overflow-x: hidden;
+} */
+
+/* lightning-combobox {
+    overflow-y: visible;
+} */
+
+.highlightedHeaderCell {
+    background-color: skyblue !important;
+}
+
+.rowHeader, .columnHeader {
+    height: 2em;
+    transition: background-color 0.2s;
+    background-color: #eee;
+}
+
+
+.blankCell {
+    background-color: white;
+}
+
+tr th:first-of-type {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+}
+
+th:hover .buttonContainer, .highlightedHeaderCell .buttonContainer {
+    opacity: 1;
+}
+
+.buttonContainer {
+    opacity: 0.1;
+    transition: opacity 0.2s;
+}
+
+.tableContainer {
+    overflow-x: auto;
+}
+
+
+lightning-input[data-null-value="true"]:not(:focus-within) {
+    --slds-c-input-color-background: grey;
+}
+
+lightning-input.highlightedTableCell {
+    --slds-c-input-color-background: lightgrey !important;
+}

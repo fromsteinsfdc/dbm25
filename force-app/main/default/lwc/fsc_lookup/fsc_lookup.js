@@ -68,9 +68,9 @@ export default class Fsc_lookup extends NavigationMixin(LightningElement) {
             this._values = [];
         } else {
             this._values = Array.isArray(values) ? values : [values];
-            this.debug('in set values');
+            // this.debug('in set values');
             let unqueriedValues = this.values.filter(value => !this.records.some(record => record.value == value));
-            this.debug('unqueried values: ' + JSON.stringify(unqueriedValues));
+            // this.debug('unqueried values: ' + JSON.stringify(unqueriedValues));
             if (unqueriedValues.length) {
                 // String objectName, String fieldsToReturn, List<String> idsToRetrieve
                 getRecordsFromIds({
@@ -78,16 +78,16 @@ export default class Fsc_lookup extends NavigationMixin(LightningElement) {
                     fieldsToReturn: this.fieldsToDisplay,
                     idsToRetrieve: unqueriedValues
                 }).then(result => {
-                    this.debug('got result');
-                    this.debug(JSON.stringify(result));
+                    // this.debug('got result');
+                    // this.debug(JSON.stringify(result));
                     this.records = [...this.records, ...this.parseFields(result)];
                     this.addNewRecordAction();
-                    this.debug('finished get getRecordsFromIds result');
+                    // this.debug('finished get getRecordsFromIds result');
                 }).catch(error => {
-                    this.debug('in getRecordsFromIds error');
-                    this.debug(JSON.stringify(error));
+                    // this.debug('in getRecordsFromIds error');
+                    this.debug(`in lookup set values, error: ${JSON.stringify(error)}`);
                 }).finally(() => {
-                    this.debug('finished search change, setting isloading to false');
+                    // this.debug('finished search change, setting isloading to false');
                     this.isLoading = false;
                 })
             }
@@ -121,8 +121,26 @@ export default class Fsc_lookup extends NavigationMixin(LightningElement) {
     }
 
     @api
+    reportValidity() {
+        return this.combobox.reportValidity();
+    }
+
+    @api
+    validate() {
+        return this.combobox.validate();
+    }
+
+    @api focus() {
+        this.combobox.focus();
+    }
+
+    @api
     get selectedRecord() {
         return this.selectedRecords.length ? this.selectedRecords[0] : null;
+    }
+
+    get combobox() {
+        return this.template.querySelector('c-fsc_combobox');
     }
 
     get isDisabled() {
@@ -145,13 +163,18 @@ export default class Fsc_lookup extends NavigationMixin(LightningElement) {
     connectedCallback() {
         // this.debug('in lookup connectedcallback');
         // this.getRecentlyViewed();
+
+        // If no icon name is provided, try using `standard:[objectName]` with objectName converted to snake case
+        if (!this.iconName) {
+            this.iconName = `standard:${this.objectName.replace(/([a-z])([A-Z])/g, '$1_$2').toLowerCase()}`;
+        }
     }
 
     getRecentlyViewed() {
         this.isLoading = true;
         getRecentlyViewed({ objectName: this.objectName, fieldsToReturn: this.fieldsToDisplay, numRecordsToReturn: DEFAULTS.NUM_RECENTLY_VIEWED, whereClause: this.whereClause })
             .then(result => {
-                this.debug('getRecentlyView result = ' + JSON.stringify(result));
+                // this.debug('getRecentlyView result = ' + JSON.stringify(result));
                 this.recentlyViewedRecords = this.parseFields(result);
                 if (!this.records.length) {
                     this.resetRecentlyViewed();
@@ -165,7 +188,7 @@ export default class Fsc_lookup extends NavigationMixin(LightningElement) {
     }
 
     handleSearchChange = (searchText) => {
-        this.debug('in handleSearchChange for ' + searchText);
+        // this.debug('in handleSearchChange for ' + searchText);
         if (!searchText) {
             this.resetRecentlyViewed();
         } else {
@@ -179,16 +202,16 @@ export default class Fsc_lookup extends NavigationMixin(LightningElement) {
                 orderByClause: this.orderByClause,
                 numRecordsToReturn: 0
             }).then(result => {
-                this.debug('got result');
-                this.debug(JSON.stringify(result));
+                // this.debug('got result');
+                // this.debug(JSON.stringify(result));
                 this.records = this.parseFields(result);
                 this.addNewRecordAction();
-                this.debug('finished get result');
+                // this.debug('finished get result');
             }).catch(error => {
-                this.debug('in error');
-                this.debug(JSON.stringify(error));
+                // this.debug('in error');
+                this.debug(`In lookup handleSearchChange, error: ${JSON.stringify(error)}`);
             }).finally(() => {
-                this.debug('finished search change, setting isloading to false');
+                // this.debug('finished search change, setting isloading to false');
                 this.isLoading = false;
             })
         }
@@ -248,8 +271,8 @@ export default class Fsc_lookup extends NavigationMixin(LightningElement) {
     }
 
     handleCustomAction(event) {
-        this.debug('in handleCustomAction');
-        this.debug(event.detail);
+        // this.debug('in handleCustomAction');
+        // this.debug(event.detail);
         if (event.detail === ACTIONS.NEW_RECORD.value) {
             this.showNewRecordModal = true;
             // this.template.querySelector('.newRecordModal').open();
@@ -283,7 +306,7 @@ export default class Fsc_lookup extends NavigationMixin(LightningElement) {
                 selectedRecord: this.selectedRecord
             }
         }
-        this.debug('about to dispatch, ' + JSON.stringify(detail));
+        // this.debug('about to dispatch, ' + JSON.stringify(detail));
         this.dispatchEvent(new CustomEvent('recordchange', { detail: detail }));
     }
 

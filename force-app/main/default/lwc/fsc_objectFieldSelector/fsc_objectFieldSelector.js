@@ -1,5 +1,5 @@
 import { LightningElement, api, track } from 'lwc';
-import { FlowAttributeChangeEvent } from 'lightning/flowSupport';
+// import { FlowAttributeChangeEvent } from 'lightning/flowSupport';
 
 import { DISPLAY_TYPE_OPTIONS, AVAILABLE_OBJECT_OPTIONS, FIELD_TYPES, LAYOUT_OPTIONS, transformConstantObject } from 'c/fsc_objectFieldSelectorUtils';
 import { setValuesFromMultipleInput, setValuesFromSingularInput } from 'c/fsc_comboboxUtils';
@@ -21,6 +21,7 @@ export default class Fsc_objectFieldSelector extends LightningElement {
     @api objectAllowMultiselect = false;
     @api fieldAllowMultiselect = false;
     @api required = false;
+    @api notifyOnClear = false;
 
     @api availableObjectSelection = this.availableObjectOptions.default?.value;
     @api availableObjects;
@@ -55,8 +56,6 @@ export default class Fsc_objectFieldSelector extends LightningElement {
         return this.objectValues.join(this.valueDelimiter);
     }
     set objectValue(value) {
-        console.log('in set objectValue');
-        console.log(value);
         this.objectValues = setValuesFromSingularInput(value, this.valueDelimiter, this.objectAllowMultiselect);
     }
 
@@ -130,6 +129,16 @@ export default class Fsc_objectFieldSelector extends LightningElement {
         }
     }
 
+    @api
+    clearFieldSelection() {
+        this.fieldSelector.clearSelection();
+    }
+
+    @api
+    clearObjectSelection() {
+        this.objectSelector.clearSelection();
+    }
+
     get computedColClass() {
         let classString = 'slds-col';
         if (this.displayType === DISPLAY_TYPE_OPTIONS.BOTH.value && this.layout === LAYOUT_OPTIONS.HORIZONTAL.value) {
@@ -158,33 +167,42 @@ export default class Fsc_objectFieldSelector extends LightningElement {
 
     handleObjectChange(event) {
         this.objectValue = event.detail.value;
-        const attributeChangeEvent = new FlowAttributeChangeEvent(
-            'objectValue',
-            this.objectValue
-        );
-        this.dispatchEvent(attributeChangeEvent);
+        // const attributeChangeEvent = new FlowAttributeChangeEvent(
+        //     'objectValue',
+        //     this.objectValue
+        // );
+        // this.dispatchEvent(attributeChangeEvent);
         this.dispatchValues();
     }
 
     handleFieldChange(event) {
         this.fieldValue = event.detail.value;
-        const attributeChangeEvent = new FlowAttributeChangeEvent(
-            'fieldValue',
-            this.fieldValue
-        );
-        this.dispatchEvent(attributeChangeEvent);
+        // const attributeChangeEvent = new FlowAttributeChangeEvent(
+        //     'fieldValue',
+        //     this.fieldValue
+        // );
+        // this.dispatchEvent(attributeChangeEvent);
         this.dispatchValues();
     }
 
+    handleFieldClearRequest() {
+        console.log(`in objectFieldSelector handleFieldClearRequest`);
+        this.dispatchEvent(new CustomEvent('fieldclearrequest'));
+    }
+
+    handleObjectClearRequest() {
+        console.log(`in objectFieldSelector handleObjectClearRequest`);
+        this.dispatchEvent(new CustomEvent('objectclearrequest'));
+    }
+
     dispatchValues() {
-        this.dispatchEvent(new CustomEvent('change', {
-            detail: {
-                objectValue: this.objectValue,
-                objectValues: this.objectValues,
-                fieldValue: this.fieldValue,
-                fieldValues: this.fieldValues
-            }
-        }));
+        let detail = {
+            objectValue: this.objectValue,
+            objectValues: this.objectValues,
+            fieldValue: this.fieldValue,
+            fieldValues: this.fieldValues
+        }
+        this.dispatchEvent(new CustomEvent('change', { detail }));
     }
 
 

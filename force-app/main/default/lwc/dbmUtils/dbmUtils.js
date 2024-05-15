@@ -9,15 +9,15 @@ const PREVIEW_PANE_SIZES = {
 const METRIC_TYPES = {
     NUMBER: { label: 'Number', value: 'number', default: true },
     CURRENCY: { label: 'Currency', value: 'currency' },
-    PERCENT: { label: 'Percent', value: 'percent' },
+    PERCENT: { label: 'Percent', value: 'percent-fixed' },
 }
 
 const METRIC_NAMES = {
+    CUSTOM: { label: '--Custom--', value: 'custom' },
     RECORD_COUNT: { label: 'Record Count', value: 'recordCount', default: true },
     REVENUE: { label: 'Revenue', value: 'revenue' },
     AMOUNT: { label: 'Amount', value: 'amount' },
     QUANTITY: { label: 'Quantity', value: 'quantity' },
-    CUSTOM: { label: '--Custom--', value: 'custom' },
 }
 
 const NUM_GROUPINGS_OPTIONS = [
@@ -25,17 +25,25 @@ const NUM_GROUPINGS_OPTIONS = [
     { label: 'Two', value: '2' },
 ];
 
-const DATA_SOURCE_OPTIONS = [
-    { label: 'Custom Text (default)', value: 'custom', showTextbox: true, grouping: 'Free Text', default: true },
-    { label: 'Users', value: 'user', showTextbox: false, grouping: 'Pull from Salesforce' },
-    { label: 'sObject Records', value: 'sobject', showTextbox: false, grouping: 'Pull from Salesforce' },
-    { label: 'Picklist Field Values', value: 'picklist', showTextbox: true, grouping: 'Pull from Salesforce' },
-    { label: 'Months (Jan-Dec)', value: 'months', showTextbox: true, grouping: 'Preset Values' },
-    { label: 'Quarters (Q1-Q4)', value: 'quarters', showTextbox: true, grouping: 'Preset Values' },
-    { label: 'Priorities (Low-Critical)', value: 'priorities', showTextbox: true, grouping: 'Preset Values' },    
+const DATA_SOURCE_OPTIONS = {
+    CUSTOM: { label: 'Custom Text (default)', value: 'custom', grouping: 'Free Text', default: true },
+    USER: { label: 'Users', value: 'user', grouping: 'Pull from Salesforce' },
+    SOBJECT: { label: 'sObject Records', value: 'sobject', grouping: 'Pull from Salesforce' },
+    PICKLIST: { label: 'Picklist Field Values', value: 'picklist', grouping: 'Pull from Salesforce' },
+    MONTHS: { label: 'Months (Jan-Dec)', value: 'months', grouping: 'Preset Values', presetEntries: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'] },
+    QUARTERS: { label: 'Quarters (Q1-Q4)', value: 'quarters', grouping: 'Preset Values', presetEntries: ['Q1', 'Q2', 'Q3', 'Q4'] },
+    PRIORITIES: { label: 'Priorities (Low-Critical)', value: 'priorities', grouping: 'Preset Values' },    
+};
+
+const CHART_TYPES = [
+    { label: 'Vertical Bar Chart', style: 'bar', name: 'vbar', multiGroupings: [true, false] },
+    { label: 'Stacked Vertical Bar Chart', style: 'bar', name: 'stackvbar', multiGroupings: [true] },
+    { label: 'Horizontal Bar Chart', style: 'horizontalBar', name: 'hbar', multiGroupings: [true, false]},
+    { label: 'Stacked Horizontal Bar Chart', style: 'horizontalBar', name: 'stackhbar', multiGroupings: [true] },
+    { label: 'Pie Chart', style: 'pie', name: 'donut', multiGroupings: [false] },
 ];
 
-const COLOURS = [
+const CHART_COLOURS = [
     '#1b96ff',
     '#ad7bee',
     '#ff538a',
@@ -50,7 +58,7 @@ const COLOURS = [
     '#0d9dda'
 ];
 
-const VALIDATEABLE_COMPONENTS = ['input', 'lightning-input', 'lightning-combobox', 'lightning-checkbox', 'lightning-dual-listbox', 'lightning-radio-group', 'lightning-slider', 'c-fsc_object-field-selector', 'c-fsc_combobox'];
+const VALIDATEABLE_COMPONENTS = ['input', 'lightning-input', 'lightning-combobox', 'lightning-checkbox', 'lightning-dual-listbox', 'lightning-radio-group', 'lightning-slider', 'c-fsc_object-field-selector', 'c-fsc_combobox', 'c-fsc_lookup'];
 
 
 const getReportGroupings = (reportDetails) => {
@@ -81,9 +89,15 @@ const defaultReportDetails = () => {
     let reportDetails = {
         maxNumGroupings: MAX_NUM_GROUPINGS,
         numGroupings: '1',
+        // metric: {
+        //     typeValue: transformConstantObject(METRIC_TYPES).default.value,
+        //     metricName: transformConstantObject(METRIC_NAMES).default.value,
+        //     isCustom: false,
+        // }
         metricType: transformConstantObject(METRIC_TYPES).default.value,
-        metricName: transformConstantObject(METRIC_NAMES).default.label,
-        groupings: []
+        metricName: transformConstantObject(METRIC_NAMES).default.value,
+        groupings: [],
+        data: [[null]],
     }
     for (let i=0; i<MAX_NUM_GROUPINGS; i++) {
         reportDetails.groupings.push(newGrouping(i));
@@ -94,25 +108,20 @@ const defaultReportDetails = () => {
 const newGrouping = (index) => {
     let newGrouping = {
         dataSource: transformConstantObject(DATA_SOURCE_OPTIONS).default.value,
-        // get dataSourceIs() {
-        //     return {
-        //         [this.dataSource]: true
-        //     };
-        // },
+        inputLabel: 'Enter Name for Grouping #'+ (Number(index) + 1),
+        entries: [],
     };            
-    // newGrouping.isDisabled = index >= Number(reportDetails.numGroupings),
-    newGrouping.inputLabel = 'Enter Name for Grouping #'+ (Number(index) + 1);
     return newGrouping;
 }
 
+const newGroupingEntry = () => {
+
+}
+
 const validate = () => {
-    console.log('in validate');
     let allValid = true;
     for (let tagName of VALIDATEABLE_COMPONENTS) {
-        console.log(this.template.querySelectorAll('*').length);
-        console.log(`tagName = ${tagName}`);
         for (let el of this.template.querySelectorAll(tagName)) {
-            console.log(el);
             allValid = allValid && el.reportValidity();
         }
     }
@@ -134,6 +143,6 @@ const transformConstantObject = (constant) => {
             return entry || this.default;
         }
     }
-}    
+}
 
-export { PREVIEW_PANE_SIZES, METRIC_TYPES, METRIC_NAMES, NUM_GROUPINGS_OPTIONS, DATA_SOURCE_OPTIONS, COLOURS, VALIDATEABLE_COMPONENTS, getReportGroupings, defaultReportDetails, newGrouping, validate, transformConstantObject };
+export { PREVIEW_PANE_SIZES, METRIC_TYPES, METRIC_NAMES, NUM_GROUPINGS_OPTIONS, DATA_SOURCE_OPTIONS, CHART_TYPES, CHART_COLOURS, VALIDATEABLE_COMPONENTS, getReportGroupings, defaultReportDetails, newGrouping, validate, transformConstantObject };

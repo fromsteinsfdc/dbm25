@@ -1,27 +1,31 @@
 <template>
     <div class="builderContainer slds-grid slds-grid_vertical">
         <div class="builderHeader slds-grid slds-grid_vertical-align-center slds-p-vertical_x-small slds-border_bottom">
-            <lightning-button label="Back" onclick={handleBackButtonClick} disabled={backButtonIsDisabled}></lightning-button>
-            <c-stage-path stages={builderSteps} current-stage-index={currentStepIndex} onstageclick={handleStepClick} class="slds-col slds-p-horizontal_x-small"></c-stage-path>
+            <!-- {reportDetailsString} -->
+            <lightning-button label="Back" onclick={handleBackButtonClick}
+                disabled={backButtonIsDisabled}></lightning-button>
+            <c-stage-path stages={builderSteps} current-stage-index={currentStepIndex} onstageclick={handleStepClick}
+                class="slds-col slds-p-horizontal_x-small"></c-stage-path>
             <lightning-button label="Next" onclick={handleNextButtonClick}></lightning-button>
         </div>
         <div class="builderBody slds-col slds-grid slds-gutters">
             <div class={contentPaneClass}>
                 <template lwc:if={currentStepIs.details}>
-                    <c-dbm-details report-details={reportDetails} onreportdetailchange={handleReportDetailChange}></c-dbm-details>
+                    <c-dbm-dataset-details report-details={reportDetails}
+                        onreportdetailchange={handleReportDetailChange}></c-dbm-dataset-details>
                 </template>
                 <template lwc:if={currentStepIs.groupings}>
-                    <c-dbm-groupings report-details={reportDetails} onreportdetailchange={handleReportDetailChange}></c-dbm-groupings>
+                    <c-dbm-dataset-groupings report-details={reportDetails}
+                        onreportdetailchange={handleReportDetailChange}></c-dbm-dataset-groupings>
+                </template>
+                <template lwc:if={currentStepIs.data}>
+                    <c-dbm-dataset-data report-details={reportDetails}
+                        onreportdetailchange={handleReportDetailChange}></c-dbm-dataset-data>
                 </template>
             </div>
             <div class={previewPaneClass}>
-
+                <c-dbm-preview report-details={reportDetails}></c-dbm-preview>
             </div>
         </div>
-        <!-- <div class="builderFooter slds-card__footer slds-grid slds-grid_vertical-align-center slds-m-top_none">
-            <button type="button" class="slds-button slds-button_neutral">Cancel</button>
-            <span class="slds-col"></span>
-            <button type="button" class="slds-button slds-button_brand">Save</button>
-        </div> -->
     </div>
 </template>

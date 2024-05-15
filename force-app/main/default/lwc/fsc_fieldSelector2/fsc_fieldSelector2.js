@@ -2,7 +2,9 @@ import { LightningElement, api, track, wire } from 'lwc';
 import { getObjectInfo } from 'lightning/uiObjectInfoApi';
 import getObjectFields from '@salesforce/apex/ObjectFieldSelectorController.getObjectFields';
 import { DISPLAY_TYPE_OPTIONS, AVAILABLE_OBJECT_OPTIONS, FIELD_TYPES, LAYOUT_OPTIONS, transformConstantObject } from 'c/fsc_objectFieldSelectorUtils';
-import { setValuesFromMultipleInput, setValuesFromSingularInput, includesIgnoreCase } from 'c/fsc_comboboxUtils';
+import { setValuesFromMultipleInput, setValuesFromSingularInput, includesIgnoreCase, CLEAR_REQUEST_EVENT_NAME } from 'c/fsc_comboboxUtils';
+
+const COMBOBOX_COMPONENT_NAME = 'c-fsc_combobox';
 
 const DATA_TYPE_ICONS = {
     Address: 'utility:location',
@@ -47,6 +49,7 @@ export default class Fsc_fieldSelector2 extends LightningElement {
     @api includeValueInFilter = false;  // If true, the 'value' text of an option is included when determining if an option is a match for a given search text.
     @api allowReferenceLookups = false; 
     @api defaultToNameField = false;
+    @api notifyOnClear = false;
     @track fields = [];
     @track _values = [];
     @track _availableFieldTypes = [];
@@ -119,13 +122,17 @@ export default class Fsc_fieldSelector2 extends LightningElement {
 
     @api
     reportValidity() {
-        return this.template.querySelector('c-fsc_combobox').reportValidity();
+        return this.combobox.reportValidity();
     }
 
     @api
     validate() {
-        // console.log('in fieldSelector validate, returning '+ JSON.stringify(this.template.querySelector('c-fsc_combobox').validate()));
-        return this.template.querySelector('c-fsc_combobox').validate();
+        return this.combobox.validate();
+    }
+
+    @api
+    clearSelection() {
+        this.combobox.clearSelection();
     }
 
     get isLoadingOrDisabled() {
@@ -140,6 +147,10 @@ export default class Fsc_fieldSelector2 extends LightningElement {
         } else {
             return this.placeholder;
         }
+    }
+
+    get combobox() {
+        return this.template.querySelector(COMBOBOX_COMPONENT_NAME);
     }
 
     @wire(getObjectInfo, { objectApiName: '$objectName' })
@@ -190,6 +201,10 @@ export default class Fsc_fieldSelector2 extends LightningElement {
     handleComboboxChange(event) {
         this.values = event.detail.values;
         this.dispatchFields();
+    }
+
+    handleClearRequest() {
+        this.dispatchEvent(new CustomEvent(CLEAR_REQUEST_EVENT_NAME));
     }
 
     /* ACTION FUNCTIONS */
