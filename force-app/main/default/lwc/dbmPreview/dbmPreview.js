@@ -1,5 +1,5 @@
 import { LightningElement, api, track } from 'lwc';
-import { METRIC_TYPES, CHART_TYPES, CHART_CHART_COLOURS } from 'c/dbmUtils';
+import { METRIC_TYPES, CHART_TYPES, CHART_COLOURS } from 'c/dbmUtils';
 import CHART_ICONS from '@salesforce/resourceUrl/ChartIcons';
 
 const CHART_DETAIL_FORMAT = {
