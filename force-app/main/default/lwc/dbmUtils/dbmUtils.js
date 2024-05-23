@@ -32,13 +32,13 @@ const DATA_SOURCE_OPTIONS = {
     PICKLIST: { label: 'Picklist Field Values', value: 'picklist', grouping: 'Pull from Salesforce' },
     MONTHS: { label: 'Months (Jan-Dec)', value: 'months', grouping: 'Preset Values', presetEntries: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'] },
     QUARTERS: { label: 'Quarters (Q1-Q4)', value: 'quarters', grouping: 'Preset Values', presetEntries: ['Q1', 'Q2', 'Q3', 'Q4'] },
-    PRIORITIES: { label: 'Priorities (Low-Critical)', value: 'priorities', grouping: 'Preset Values' },    
+    PRIORITIES: { label: 'Priorities (Low-Critical)', value: 'priorities', grouping: 'Preset Values' },
 };
 
 const CHART_TYPES = [
     { label: 'Vertical Bar Chart', style: 'bar', name: 'vbar', multiGroupings: [true, false] },
     { label: 'Stacked Vertical Bar Chart', style: 'bar', name: 'stackvbar', multiGroupings: [true] },
-    { label: 'Horizontal Bar Chart', style: 'horizontalBar', name: 'hbar', multiGroupings: [true, false]},
+    { label: 'Horizontal Bar Chart', style: 'horizontalBar', name: 'hbar', multiGroupings: [true, false] },
     { label: 'Stacked Horizontal Bar Chart', style: 'horizontalBar', name: 'stackhbar', multiGroupings: [true] },
     { label: 'Pie Chart', style: 'pie', name: 'donut', multiGroupings: [false] },
 ];
@@ -60,31 +60,6 @@ const CHART_COLOURS = [
 
 const VALIDATEABLE_COMPONENTS = ['input', 'lightning-input', 'lightning-combobox', 'lightning-checkbox', 'lightning-dual-listbox', 'lightning-radio-group', 'lightning-slider', 'c-fsc_object-field-selector', 'c-fsc_combobox', 'c-fsc_lookup'];
 
-
-const getReportGroupings = (reportDetails) => {
-    let props = Object.entries(reportDetails);
-    let groupings = [];
-    for (let i=0; i<reportDetails.maxNumGroupings; i++) {
-        let grouping = 'grouping' + (Number(i) + 1);
-        let newGrouping = {
-            dataSource: transformConstantObject(DATA_SOURCE_OPTIONS).default.value,
-            groupingName: grouping,
-            inputLabel: 'Enter Name for Grouping #'+ (Number(i) + 1),
-            isDisabled: i >= Number(reportDetails.numGroupings),
-            get dataSourceIs() {
-                return {
-                    [this.dataSource]: true
-                };
-            },
-        };            
-        for (let [key, val] of props.filter(prop => prop[0].startsWith(grouping))) {
-            newGrouping[key.replace(grouping, '')] = val;
-        }
-        groupings.push(newGrouping);        
-    }
-    return groupings;
-}
-
 const defaultReportDetails = () => {
     let reportDetails = {
         maxNumGroupings: MAX_NUM_GROUPINGS,
@@ -99,7 +74,7 @@ const defaultReportDetails = () => {
         groupings: [],
         data: [[null]],
     }
-    for (let i=0; i<MAX_NUM_GROUPINGS; i++) {
+    for (let i = 0; i < MAX_NUM_GROUPINGS; i++) {
         reportDetails.groupings.push(newGrouping(i));
     }
     return reportDetails;
@@ -108,13 +83,27 @@ const defaultReportDetails = () => {
 const newGrouping = (index) => {
     let newGrouping = {
         dataSource: transformConstantObject(DATA_SOURCE_OPTIONS).default.value,
-        inputLabel: 'Enter Name for Grouping #'+ (Number(index) + 1),
+        inputLabel: 'Enter Name for Grouping #' + (Number(index) + 1),
         entries: [],
-    };            
+        presetEntries: []
+    };
     return newGrouping;
 }
 
-const newGroupingEntry = () => {
+const switchGroupings = (reportDetails) => {
+    reportDetails = JSON.parse(JSON.stringify(reportDetails));
+    let tempGrouping = JSON.parse(JSON.stringify(reportDetails.groupings[0]));
+    reportDetails.groupings[0] = JSON.parse(JSON.stringify(reportDetails.groupings[1]));
+    reportDetails.groupings[1] = tempGrouping;
+    let datasets = reportDetails.data[0].map(row => []);
+    console.log(`datasets = ${JSON.stringify(datasets)}`);
+    reportDetails.data.forEach(row => {
+        row.forEach((cell, colIndex) => {
+            datasets[colIndex].push(cell);
+        })
+    })
+    reportDetails.data = datasets;
+    return reportDetails;
 
 }
 
@@ -145,4 +134,4 @@ const transformConstantObject = (constant) => {
     }
 }
 
-export { PREVIEW_PANE_SIZES, METRIC_TYPES, METRIC_NAMES, NUM_GROUPINGS_OPTIONS, DATA_SOURCE_OPTIONS, CHART_TYPES, CHART_COLOURS, VALIDATEABLE_COMPONENTS, getReportGroupings, defaultReportDetails, newGrouping, validate, transformConstantObject };
+export { PREVIEW_PANE_SIZES, METRIC_TYPES, METRIC_NAMES, NUM_GROUPINGS_OPTIONS, DATA_SOURCE_OPTIONS, CHART_TYPES, CHART_COLOURS, VALIDATEABLE_COMPONENTS, defaultReportDetails, newGrouping, switchGroupings, validate, transformConstantObject };

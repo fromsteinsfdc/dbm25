@@ -1,7 +1,7 @@
 <template>
     <div class="builderContainer slds-grid slds-grid_vertical">
+        {reportDetailsString}
         <div class="builderHeader slds-grid slds-grid_vertical-align-center slds-p-vertical_x-small slds-border_bottom">
-            <!-- {reportDetailsString} -->
             <lightning-button label="Back" onclick={handleBackButtonClick}
                 disabled={backButtonIsDisabled}></lightning-button>
             <c-stage-path stages={builderSteps} current-stage-index={currentStepIndex} onstageclick={handleStepClick}
@@ -9,7 +9,7 @@
             <lightning-button label="Next" onclick={handleNextButtonClick}></lightning-button>
         </div>
         <div class="builderBody slds-col slds-grid slds-gutters">
-            <div class={contentPaneClass}>
+            <div class="contentPane slds-col" onmouseup={handleContentPaneMouseUp}>
                 <template lwc:if={currentStepIs.details}>
                     <c-dbm-dataset-details report-details={reportDetails}
                         onreportdetailchange={handleReportDetailChange}></c-dbm-dataset-details>
@@ -23,8 +23,16 @@
                         onreportdetailchange={handleReportDetailChange}></c-dbm-dataset-data>
                 </template>
             </div>
-            <div class={previewPaneClass}>
-                <c-dbm-preview report-details={reportDetails}></c-dbm-preview>
+            <div class="previewPane" style={previewPaneStyle}>
+                <template lwc:if={showPreviewEnlargeButton}>
+                    <lightning-button-icon class="previewEnlargeButton" icon-name="utility:left" variant="bare" size="medium" tooltip="Expand preview" title="Shrink preview"
+                        onclick={handlePreviewEnlargeClick}></lightning-button-icon>
+                </template>
+                <template lwc:if={previewPaneWidth}>
+                    <lightning-button-icon class="previewShrinkButton" icon-name="utility:right" variant="bare" size="medium" tooltip="Shrink preview" title="Shrink preview"
+                        onclick={handlePreviewShrinkClick}></lightning-button-icon>
+                    <c-dbm-preview report-details={reportDetails}></c-dbm-preview>
+                </template>
             </div>
         </div>
     </div>

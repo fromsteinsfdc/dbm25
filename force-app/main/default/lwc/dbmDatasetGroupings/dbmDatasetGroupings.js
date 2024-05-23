@@ -1,6 +1,6 @@
 import { LightningElement, api, track, wire } from 'lwc';
 // import { getPicklistValues } from "lightning/uiObjectInfoApi";
-import { VALIDATEABLE_COMPONENTS, NUM_GROUPINGS_OPTIONS, DATA_SOURCE_OPTIONS, getReportGroupings, transformConstantObject } from 'c/dbmUtils';
+import { VALIDATEABLE_COMPONENTS, NUM_GROUPINGS_OPTIONS, DATA_SOURCE_OPTIONS, transformConstantObject } from 'c/dbmUtils';
 const KEYS = {
     ESCAPE: 27
 }

@@ -1,5 +1,12 @@
 :host {
     --table-column-width: 10em;
+    --highlighted-color: #D8E6FE;
+    --selected-background-color: #57A3FD;
+    --selected-text-color: white;    
+}
+
+.tableContainer {
+    overflow-x: auto;
 }
 
 table {
@@ -12,19 +19,6 @@ th {
     max-width: var(--table-column-width);
 }
 
-/* th span {
-    text-overflow: ellipsis;
-    overflow-x: hidden;
-} */
-
-/* lightning-combobox {
-    overflow-y: visible;
-} */
-
-.highlightedHeaderCell {
-    background-color: skyblue !important;
-}
-
 .rowHeader, .columnHeader {
     height: 2em;
     transition: background-color 0.2s;
@@ -34,9 +28,17 @@ th {
 
 .blankCell {
     background-color: white;
+    position: relative;
 }
 
-tr th:first-of-type {
+.blankCell * {
+    position: relative;
+    left: 50%;
+    transform: translateY(-100%);
+}
+
+/* tr th:first-of-type { */
+th:first-of-type {
     position: sticky;
     left: 0;
     z-index: 1;
@@ -46,20 +48,34 @@ th:hover .buttonContainer, .highlightedHeaderCell .buttonContainer {
     opacity: 1;
 }
 
-.buttonContainer {
+.highlightedHeaderCell, th.highlighted {
+    background-color: var(--highlighted-color) !important;
+}
+
+th.selected {    
+    background-color: var(--selected-background-color) !important; 
+    color: var(--selected-text-color) !important;   
+}
+
+lightning-input.highlightedTableCell, lightning-input.highlighted {
+    --slds-c-input-color-background: var(--highlighted-color) !important;
+}
+
+lightning-input.selectedTableCell, lightning-input.selected {    
+    --slds-c-input-color-background: var(--selected-background-color) !important;
+    --slds-c-input-text-color: var(--selected-text-color) !important;
+    --slds-c-input-text-color-focus: var(--selected-text-color) !important;
+}
+
+.toggleContainer {
+    width: fit-content;
+}
+
+/* lightning-input[data-null-value="true"]:not(:focus-within) {
+    --slds-c-input-color-background: grey;
+} */
+
+/* .buttonContainer {
     opacity: 0.1;
     transition: opacity 0.2s;
-}
-
-.tableContainer {
-    overflow-x: auto;
-}
-
-
-lightning-input[data-null-value="true"]:not(:focus-within) {
-    --slds-c-input-color-background: grey;
-}
-
-lightning-input.highlightedTableCell {
-    --slds-c-input-color-background: lightgrey !important;
-}
+} */

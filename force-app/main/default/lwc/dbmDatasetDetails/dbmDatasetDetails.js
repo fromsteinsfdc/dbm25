@@ -1,12 +1,9 @@
 import { LightningElement, api, wire, track } from 'lwc';
 import LightningConfirm from 'lightning/confirm';
-import { METRIC_TYPES, METRIC_NAMES, NUM_GROUPINGS_OPTIONS, DATA_SOURCE_OPTIONS, VALIDATEABLE_COMPONENTS, getReportGroupings, /*validate,*/ transformConstantObject } from 'c/dbmUtils';
+import { METRIC_TYPES, METRIC_NAMES, NUM_GROUPINGS_OPTIONS, DATA_SOURCE_OPTIONS, VALIDATEABLE_COMPONENTS, /*validate,*/ switchGroupings, transformConstantObject } from 'c/dbmUtils';
 import getPicklistValues from '@salesforce/apex/DBM25Controller.getPicklistValues';
 
-const LIGHTNING_COMPONENT_PREFIX = 'lightning-';
-
 export default class DbmDatasetDetails extends LightningElement {
-    // static delegatesFocus = true;
     @api
     get reportDetails() {
         return this._reportDetails;
@@ -20,34 +17,20 @@ export default class DbmDatasetDetails extends LightningElement {
     metricNames = transformConstantObject(METRIC_NAMES);
     dataSources = transformConstantObject(DATA_SOURCE_OPTIONS);
 
-    // @track grouping1DataSource;
-    // @track grouping2DataSource;
-    get reportDetailsString() {
-        return JSON.stringify(this.reportDetails);
-    }
-
     reportName;
     exampleDisclaimer = 'Any previews or examples in Dashboard Magic are just that. After creating your fake data, you\'ll be able to display it on a standard Lightning dashboard chart with exactly the same functionality as any other.';
 
-    numGroupingsOptions = NUM_GROUPINGS_OPTIONS;
+    // numGroupingsOptions = NUM_GROUPINGS_OPTIONS;
+    get numGroupingsOptions() {
+        return NUM_GROUPINGS_OPTIONS.map(option => {
+            return {
+                ...option,
+                variant: option.value == this.reportDetails?.numGroupings ? 'brand' : ''
+            }
+        });
+    }
 
     numGroupings = this.numGroupingsOptions[0].value;
-    get useSubgroupings() {
-        return this.reportDetails.numGroupings > 1;
-    }
-
-    // @track groupings = [newGrouping(0), newGrouping(1)];
-
-    get disableGrouping2() {
-        return !this.useSubgroupings;
-    }
-
-    get groupings() {
-        // console.log(`printing getReportGroupings(this.reportDetails): ${JSON.stringify(getReportGroupings(this.reportDetails))}`);
-        // return getReportGroupings(this.reportDetails);
-        return this.reportDetails.groupings;
-    }
-
 
     /* WIRE METHODS */
 
@@ -84,13 +67,27 @@ export default class DbmDatasetDetails extends LightningElement {
                 targetElement[functionName]();
                 grouping.entries = [];
                 grouping.presetEntries = [];    // Not sure if this is necessary, better safe than sorry
+                this.dispatchDetails();
+
             }
         } else {
             console.log(`no grouping entry has a value, so no confirmation is required`)
             targetElement[functionName]();
             grouping.entries = [];
             grouping.presetEntries = [];
+            this.dispatchDetails();
         }
+    }
+
+    resetGrouping2() {
+        this.reportDetails.numGroupings = 1;
+        this.reportDetails.groupings[1].entries = [];
+        this.reportDetails.groupings[1].name = null;
+        this.reportDetails.groupings[1].dataSource = this.dataSources.default.value;
+        this.reportDetails.data.forEach(row => {
+            row.length = 1;
+        });
+        this.dispatchDetails();
     }
 
     /* EVENT HANDLERS */
@@ -102,8 +99,22 @@ export default class DbmDatasetDetails extends LightningElement {
         this.dispatchDetails();
     }
 
-    handleGroupingNumberChange(event) {
-        
+    async handleGroupingNumberChange(event) {
+        console.log(`in handleGroupingNumberChange, ${event.target.value}`)
+        if (event.target.value == 2) {
+            this.reportDetails.numGroupings = event.target.value;
+            this.dispatchDetails();
+        } else if (this.reportDetails.numGroupings == 2 && this.reportDetails.groupings[1].entries.length > 1) {
+            const result = await LightningConfirm.open({
+                message: 'Removing the second grouping level will clear any values entered under that grouping level. Proceed?',
+                label: 'Confirm Removing Grouping Level'
+            });
+            if (result) {
+                this.resetGrouping2();
+            }
+        } else {
+            this.resetGrouping2();
+        }
     }
 
     handleGroupingDetailChange(event) {
@@ -150,6 +161,11 @@ export default class DbmDatasetDetails extends LightningElement {
     handleGroupingPropertyFieldClearRequest(event) {
         console.log(`in handleGroupingPropertyFieldClearRequest`);
         this.confirmGroupingPropertyClear(event, 'clearFieldSelection');
+    }
+
+    handleSwitchGroupingsClick() {
+        this.reportDetails = switchGroupings(this.reportDetails);
+        this.dispatchDetails();
     }
 
     /* UTILITY FUNCTIONS */

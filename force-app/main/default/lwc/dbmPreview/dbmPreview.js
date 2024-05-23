@@ -1,16 +1,11 @@
 import { LightningElement, api, track } from 'lwc';
-import { METRIC_TYPES, CHART_TYPES, CHART_COLOURS } from 'c/dbmUtils';
+import { METRIC_TYPES, CHART_TYPES, CHART_COLOURS, switchGroupings } from 'c/dbmUtils';
 import CHART_ICONS from '@salesforce/resourceUrl/ChartIcons';
 
 const CHART_DETAIL_FORMAT = {
     STRING: 'string',
     ARRAY: 'array'
 }
-
-// const STRINGS = {
-//     PERCENT_FIXED: 'percent-fixed'
-// }
-
 export default class DbmPreview extends LightningElement {
 
     @track
@@ -55,8 +50,6 @@ export default class DbmPreview extends LightningElement {
     get chartDetailsString() {
         return JSON.stringify(this.chartDetails);
     }
-
-    // @api flexipageRegionWidth;
 
     @api
     get reportDetails() {
@@ -109,7 +102,6 @@ export default class DbmPreview extends LightningElement {
         return this._chartDataString;
     }
     set chartDataString(value) {
-        // console.log('setting chartDataString to '+ value);
         this._chartDataString = value;
         if (this.chartDataString) {
             this.rows = JSON.parse(value);
@@ -157,17 +149,14 @@ export default class DbmPreview extends LightningElement {
     }
 
     get linearLabel() {
-        // return this.metricName;
         return this.reportDetails.metricLabel;
     }
 
     get categoryAxis() {
-        // return this.isDonut ? null : (this.chartType.includes('hbar') ? 'y' : 'x');
         return !this.isDonut && (this.chartType.includes('hbar') ? 'y' : 'x');
     }
 
     get categoryLabel() {
-        // return this.grouping1Name;
         return this.reportDetails.groupings[0].name;
     }
 
@@ -180,7 +169,6 @@ export default class DbmPreview extends LightningElement {
     }
 
     connectedCallback() {
-        // console.log(`chartDetailsString = ${this.chartDetailsString}`);
         this.setDefaultChartType();
     }
 
@@ -199,7 +187,6 @@ export default class DbmPreview extends LightningElement {
     }
 
     handleChartTypeClick(event) {
-        // console.log('in handleChartTypeClick, chartType = '+ event.target.dataset.chartType);
         this.chartType = event.target.dataset.chartType;
         this.showChart = false;
     }
@@ -207,30 +194,14 @@ export default class DbmPreview extends LightningElement {
     drawChart() {
         // console.log(`in dbm2preview: starting drawChart`);
         this.chartLabels = this.reportDetails.groupings[0].entries.map(groupingEntry => groupingEntry.value);
-        console.log(`dbm2preview chartLabels = ${JSON.stringify(this.chartLabels)}`);
+        // console.log(`dbm2preview chartLabels = ${JSON.stringify(this.chartLabels)}`);
         if (!this.useSubgroupings) {
             this.datasets = [{
                 data: this.convertChartDetailsIntoLwccFormat(this.reportDetails.data.map(dataRow => dataRow[0] || 0)),
                 colour: CHART_COLOURS[0]
             }]
         } else {
-            let datasets = this.reportDetails.data[0].map(row => []);
-            console.log(`datasets = ${JSON.stringify(datasets)}`);
-            this.reportDetails.data.forEach(row => {
-                row.forEach((cell, colIndex) => {
-                    datasets[colIndex].push(cell);
-                })
-            })
-            // for (let i = 0; i < this.reportDetails.data.length; i++) {
-            //     for (let j = 0; j < this.reportDetails.data[0].length; j++) {
-            //         if (datasets[j]) {
-            //             datasets[j].push(this.reportDetails.data[i][j]);
-            //         } else {
-            //             datasets[j] = [this.reportDetails.data[i][j]];
-            //         }
-            //     }
-            // }
-            this.datasets = datasets.map((dataset, index) => {
+            this.datasets = switchGroupings(this.reportDetails).data.map((dataset, index) => {
                 return {
                     label: this.reportDetails.groupings[1].entries[index]?.value,
                     data: this.convertChartDetailsIntoLwccFormat(dataset),
@@ -243,9 +214,6 @@ export default class DbmPreview extends LightningElement {
 
 
     ticksCallback = (value, index, values) => {
-        // console.log('in ticksCallback');
-        // console.log(this.metricType, METRIC_TYPES.CURRENCY.value, METRIC_TYPES.PERCENT.value);
-        // value = 
         if (this.reportDetails.metricType == METRIC_TYPES.CURRENCY.value) {
             return '$' + value;
         } else if (this.reportDetails.metricType == METRIC_TYPES.PERCENT.value) {
@@ -268,7 +236,6 @@ export default class DbmPreview extends LightningElement {
     @api
     resizeChart() {
         let componentWidth = this.template.querySelector('.previewContainer').offsetWidth;
-        // console.log(`componentWidth = ${componentWidth}`);
         if (componentWidth <= 200) {
             this.iconSize = '20px';
         } else if (componentWidth <= 400) {
@@ -276,6 +243,5 @@ export default class DbmPreview extends LightningElement {
         } else {
             this.iconSize = '40px';
         }
-        // this.iconSize = componentWidth <= 480 ? '20px' : '40px';
     }
 }

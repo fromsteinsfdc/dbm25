@@ -1,5 +1,4 @@
 <template>
-    <!-- {reportDetailsString} -->
     <div class="groupingsContainer slds-grid">
         <template for:each={reportDetails.groupings} for:item="grouping" for:index="groupingIndex">
             <template lwc:if={grouping.isDisabled}></template>
@@ -12,11 +11,6 @@
                         <lightning-button-icon icon-name="utility:justify_text" tooltip="Bulk Add Entries"
                             title="Bulk Add Entries" class="bulkAddEntriesButton" onclick={handleBulkAddClick}
                             data-index={groupingIndex}></lightning-button-icon>
-
-                        <!-- <lightning-button label="Add Entry" onclick={handleAddEntryClick}
-                        data-index={groupingIndex}></lightning-button>
-                    <lightning-button label="Bulk Add Entries" class="bulkAddEntriesButton" onclick={handleBulkAddClick}
-                        data-index={groupingIndex}></lightning-button> -->
                     </lightning-button-group>
                     <div class="slds-grid slds-wrap entriesContainer">
                         <template for:each={grouping.entries} for:item="entry" for:index="entryIndex">
@@ -30,14 +24,16 @@
                                             required></c-fsc_lookup>
                                     </template>
                                     <template lwc:elseif={grouping.dataSourceIs.user}>
-                                        <c-fsc_lookup class="inputElement" object-name="User" label="" data-grouping-index={groupingIndex}
-                                            data-entry-index={entryIndex} value={entry.recordId}
-                                            onrecordchange={handleEntryRecordChange} required></c-fsc_lookup>
+                                        <c-fsc_lookup class="inputElement" object-name="User" label=""
+                                            data-grouping-index={groupingIndex} data-entry-index={entryIndex}
+                                            value={entry.recordId} onrecordchange={handleEntryRecordChange}
+                                            required></c-fsc_lookup>
                                     </template>
                                     <template lwc:else>
-                                        <lightning-input class="inputElement" variant="label-hidden" data-grouping-index={groupingIndex}
-                                            data-entry-index={entryIndex} value={entry.value}
-                                            onchange={handleEntryTextChange} required></lightning-input>
+                                        <lightning-input class="inputElement" variant="label-hidden"
+                                            data-grouping-index={groupingIndex} data-entry-index={entryIndex}
+                                            value={entry.value} onchange={handleEntryTextChange}
+                                            required></lightning-input>
                                     </template>
                                 </div>
                                 <div class="entryActions">

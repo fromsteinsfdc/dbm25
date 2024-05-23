@@ -11,7 +11,27 @@
     /* margin: 1em 0; */
 }
 
+.contentPane {
+    overflow-x: scroll;
+}
+
 .contentPane, .previewPane {
+    top: 0;
+    position: relative;
     transition-duration: 0.3s;
     transition-timing-function: ease-in-out;
+}
+
+.previewEnlargeButton {
+    position: absolute;
+    top: 100px;
+    left: -1em;
+    /* transform: translateY(-200%); */
+}
+
+.previewShrinkButton {
+    position: absolute;
+    top: 100px;
+    left: -0.1em;
+    /* left: 25px; */
 }

@@ -14,11 +14,18 @@ export default class DbmDatasetBuilder extends LightningElement {
     @api changeLog = [];
     @api changeLogIndex = 0;
 
+    @api
+    resizePreview() {
+        if (this.previewElement) {
+            this.previewElement.resizeChart();
+        }
+    }
+
     // showChart;
 
     demoReport = true;
-
-    previewPaneSize = PREVIEW_PANE_SIZES.SMALL;
+    previewPaneSizes = [0, 25, 50];
+    previewPaneIndex = 1;
     metricNames = transformConstantObject(METRIC_NAMES);
 
     /* Manage the various steps of the builder */
@@ -39,47 +46,36 @@ export default class DbmDatasetBuilder extends LightningElement {
             [this.currentStep.value]: true
         }
     }
+
     get backButtonIsDisabled() {
         return this.currentStepIndex == 0;
     }
 
-
-    get contentPaneClass() {
-        let classList = ['contentPane', 'slds-div', 'slds-col'];
-        if (this.hidePreview) {
-            classList.push('slds-size_1-of-1');
-        } else if (this.previewPaneSize === PREVIEW_PANE_SIZES.LARGE) {
-            classList.push('slds-size_1-of-2');
-        } else if (this.previewPaneSize === PREVIEW_PANE_SIZES.SMALL) {
-            classList.push('slds-size_3-of-4');
-        }
-        return classList.join(' ');
+    get showPreviewEnlargeButton() {
+        return this.previewPaneIndex < this.previewPaneSizes.length - 1;
     }
 
-    get previewPaneClass() {
-        let classList = ['previewPane', 'slds-div', 'slds-col', 'slds-border_left'];
-        if (this.hidePreview) {
-            classList.push('slds-hide');
-        } else if (this.previewPaneSize === PREVIEW_PANE_SIZES.LARGE) {
-            classList.push('slds-size_1-of-2');
-        } else if (this.previewPaneSize === PREVIEW_PANE_SIZES.SMALL) {
-            classList.push('slds-size_1-of-4');
-        }
-        return classList.join(' ');
+    get previewElement() {
+        return this.template.querySelector('c-dbm-preview');
     }
 
-    /* Only temporarily using for preview testing */
-    // get grouping1Name() {
-    //     return this.reportDetails.groupings[0].name;
+    // get showPreviewShrinkButton() {
+    //     return this.previewPaneSize != PREVIEW_PANE_SIZES.HIDDEN;
     // }
 
-    // get grouping2Name() {
-    //     return this.reportDetails.groupings[1].name;
-    // }
+    get previewPaneWidth() {
+        return this.previewPaneSizes[this.previewPaneIndex];
+    }
 
-    // get useSubgroupings() {
-    //     return !this.reportDetails.groupings[1].isDisabled;
-    // }
+    get previewPaneStyle() {
+        let styles = [`width: ${this.previewPaneWidth}% !important`];
+        if (this.previewPaneWidth) {
+            styles.push('margin-left: 1em');
+            styles.push('padding-left: 1em');
+            styles.push('border-left: 1px solid rgb(116,116,116, .5)');
+        }
+        return styles.join('; ');
+    }
 
     connectedCallback() {
         // If report details are not already defined, start with a default template
@@ -94,10 +90,17 @@ export default class DbmDatasetBuilder extends LightningElement {
         }
         this.processReportDetails();
     }
+
+    rendered;
     renderedCallback() {
-        // if (!this.showChart) {
-        //     this.showChart = true;
-        // }
+        this.resizePreview();
+        if (!this.rendered) {
+            this.rendered = true;
+            this.template.querySelector('.previewPane').addEventListener("transitionend", () => {
+                this.resizePreview();
+            });
+
+        }
     }
 
     processReportDetails() {
@@ -147,6 +150,29 @@ export default class DbmDatasetBuilder extends LightningElement {
         let isValid = currentBuilderStepComponent.validate();
         if (isValid) {
             this.currentStepIndex++;
+        }
+    }
+
+    handlePreviewEnlargeClick() {
+        // console.log(`current previewPaneSize = ${this.previewPaneSize}`);
+        if (this.previewPaneIndex < this.previewPaneSizes.length - 1) {
+            this.previewPaneIndex++;
+        }
+    }
+
+    handlePreviewShrinkClick() {
+        // console.log(`current previewPaneSize = ${this.previewPaneSize}`);
+        if (this.previewPaneIndex > 0) {
+            this.previewPaneIndex--;
+        }
+    }
+
+    // If the user has clicked their mouse in the `data` component and not on a cell or header, clear the selection
+    handleContentPaneMouseUp() {
+        // console.log(`in dbmDatasetBuilder handleContentPaneMouseUp`);
+        let dataCmp = this.template.querySelector('c-dbm-dataset-data');
+        if (dataCmp && !dataCmp.preventClearSelection()) {
+            dataCmp.clearSelectedElements();
         }
     }
 
