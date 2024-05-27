@@ -1,12 +1,20 @@
 <template>
+    
+    <template lwc:if={showSpinner}>
+        <lightning-spinner></lightning-spinner>
+    </template>
     <div class="builderContainer slds-grid slds-grid_vertical">
-        {reportDetailsString}
+        showSpinner = {showSpinner}<br>
+        <!-- {reportDetailsString}
+        <lightning-button variant="error" label="Generate report"
+            onclick={handleGenerateReportClick}></lightning-button> -->
         <div class="builderHeader slds-grid slds-grid_vertical-align-center slds-p-vertical_x-small slds-border_bottom">
             <lightning-button label="Back" onclick={handleBackButtonClick}
                 disabled={backButtonIsDisabled}></lightning-button>
             <c-stage-path stages={builderSteps} current-stage-index={currentStepIndex} onstageclick={handleStepClick}
                 class="slds-col slds-p-horizontal_x-small"></c-stage-path>
-            <lightning-button label="Next" onclick={handleNextButtonClick}></lightning-button>
+            <lightning-button label={nextButton.label} variant={nextButton.variant}
+                onclick={handleNextButtonClick}></lightning-button>
         </div>
         <div class="builderBody slds-col slds-grid slds-gutters">
             <div class="contentPane slds-col" onmouseup={handleContentPaneMouseUp}>
@@ -22,18 +30,46 @@
                     <c-dbm-dataset-data report-details={reportDetails}
                         onreportdetailchange={handleReportDetailChange}></c-dbm-dataset-data>
                 </template>
+                <template lwc:if={currentStepIs.finalize}>
+                    <c-dbm-dataset-finalize report-details={reportDetails} folders-list={reportFolders}
+                        onreportdetailchange={handleReportDetailChange}></c-dbm-dataset-finalize>
+                </template>
             </div>
             <div class="previewPane" style={previewPaneStyle}>
                 <template lwc:if={showPreviewEnlargeButton}>
-                    <lightning-button-icon class="previewEnlargeButton" icon-name="utility:left" variant="bare" size="medium" tooltip="Expand preview" title="Shrink preview"
+                    <lightning-button-icon class="previewEnlargeButton" icon-name="utility:left" variant="bare"
+                        size="medium" tooltip="Expand preview" title="Shrink preview"
                         onclick={handlePreviewEnlargeClick}></lightning-button-icon>
                 </template>
                 <template lwc:if={previewPaneWidth}>
-                    <lightning-button-icon class="previewShrinkButton" icon-name="utility:right" variant="bare" size="medium" tooltip="Shrink preview" title="Shrink preview"
+                    <lightning-button-icon class="previewShrinkButton" icon-name="utility:right" variant="bare"
+                        size="medium" tooltip="Shrink preview" title="Shrink preview"
                         onclick={handlePreviewShrinkClick}></lightning-button-icon>
                     <c-dbm-preview report-details={reportDetails}></c-dbm-preview>
                 </template>
             </div>
         </div>
     </div>
+
+    <template lwc:if={showSubmitModal}>
+        <c-dbm-modal header="Save and Generate Report">
+            <div slot="modalContent">
+                <p>Clicking the Confirm button below will save the dataset you've created as DBM records, as well as
+                    generate a report to be used for dashboards and charts. Do you want to proceed?</p>
+            </div>
+            <div slot="footer">
+                <template lwc:if={reportDetails.reportId}>
+                    <!-- <lightning-button  -->
+                </template>
+                <template lwc:else>
+                    <div class="footerButtonsContainer slds-align_absolute-center">
+                        <lightning-button label="Cancel" onclick={handleSubmitModalCancelClick}
+                            class="slds-p-horizontal_xx-small"></lightning-button>
+                        <lightning-button label="Confirm" onclick={handleSubmitModalSaveClick}
+                            class="slds-p-horizontal_xx-small" variant="brand"></lightning-button>
+                    </div>
+                </template>
+            </div>
+        </c-dbm-modal>
+    </template>
 </template>

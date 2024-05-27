@@ -171,11 +171,35 @@ export default class DbmDatasetDetails extends LightningElement {
     /* UTILITY FUNCTIONS */
     @api validate() {
         let allValid = true;
+
+        // Grouping names must be different from each other or it will cause errors in the Apex code
+        if (this.reportDetails.numGroupings > 1) {
+            let repeatGroupings = {};
+            this.reportDetails.groupings.forEach((grouping, index) => {
+                if (repeatGroupings[grouping.name]) {
+                    repeatGroupings[grouping.name].push(index);
+                } else {
+                    repeatGroupings[grouping.name] = [index];
+                }
+            });
+
+            this.reportDetails.groupings.forEach((grouping, index) => {
+                let el = this.template.querySelector(`.groupingName[data-index="${index}"]`);
+                if (repeatGroupings[grouping.name].length > 1) {
+                    el.setCustomValidity(`Grouping names must be unique`);
+                    allValid = false;
+                } else {
+                    el.setCustomValidity('');
+                }
+            });
+        }
+
         for (let tagName of VALIDATEABLE_COMPONENTS) {
             for (let el of this.template.querySelectorAll(tagName)) {
                 allValid = el.reportValidity() && allValid;
             }
         }
+
         return allValid;
     }
 }

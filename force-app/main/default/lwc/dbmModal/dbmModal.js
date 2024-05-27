@@ -8,9 +8,10 @@ export default class DbmModal extends LightningElement {
 
     @api header;
     @api showModal = false;
+    @api preventDefaultCancel = false;
 
     /* ACTION FUNCTIONS */
-    cancelModal() {
+    cancelModal() {    
         this.dispatchEvent(new CustomEvent('cancel'));
     }
 

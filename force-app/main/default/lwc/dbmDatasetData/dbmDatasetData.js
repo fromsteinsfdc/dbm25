@@ -1,5 +1,5 @@
 import { LightningElement, api, track } from 'lwc';
-import { switchGroupings } from "c/dbmUtils";
+import { VALIDATEABLE_COMPONENTS, switchGroupings } from "c/dbmUtils";
 
 const CLASSES = {
     HIGHLIGHTED_HEADER_CELL: 'highlightedHeaderCell',
@@ -173,7 +173,7 @@ export default class DbmDatasetData extends LightningElement {
     handleCellValueChange(event) {
         let rowIndex = event.target.dataset.rowIndex;
         let colIndex = event.target.dataset.colIndex;
-        this.reportDetails.data[rowIndex][colIndex] = event.target.value;
+        this.reportDetails.data[rowIndex][colIndex] = Number(event.target.value);
         this.dispatchDetails();
     }
 
@@ -182,7 +182,25 @@ export default class DbmDatasetData extends LightningElement {
         this.dispatchDetails();
     }
 
-    handleSaveBlanksClick() {
+    handleClearSelectedClick(event) {
+        event.stopPropagation();
+        event.preventDefault();
+        [...this.selectedInputCells].forEach(cell => {
+            this.reportDetails.data[cell.dataset.rowIndex][cell.dataset.colIndex] = null;            
+        });
+        this.dispatchDetails();
+    }
+
+    handleClearAllClick(event) {
+        event.stopPropagation();
+        event.preventDefault();
+        [...this.allInputCells].forEach(cell => {
+            this.reportDetails.data[cell.dataset.rowIndex][cell.dataset.colIndex] = null;            
+        });
+        this.dispatchDetails();
+    }
+
+    handleSaveBlanksClick(event) {
         event.stopPropagation();
         event.preventDefault();
         this.saveBlanksAsZeroes = !this.saveBlanksAsZeroes;
@@ -281,7 +299,7 @@ export default class DbmDatasetData extends LightningElement {
         this.dragOriginHeader = {};
     }
 
-    handleRandomizeClick() {
+    handleRandomizeClick(event) {
         event.stopPropagation();
         event.preventDefault();
         this.showRandomizeModal = true;
@@ -332,6 +350,16 @@ export default class DbmDatasetData extends LightningElement {
         if (element) {
             element.focus();
         }
+    }
+
+    @api validate() {
+        let allValid = true;
+        for (let tagName of VALIDATEABLE_COMPONENTS) {
+            for (let el of this.template.querySelectorAll(tagName)) {
+                allValid = el.reportValidity() && allValid;
+            }
+        }
+        return allValid;
     }
 
     /*

@@ -34,9 +34,9 @@
                             </c-cartesian-category-axis>
                         </template>
                          <c-legend position="bottom" display={displayLegend}></c-legend>
-                        <template if:true={dontAnimate}>
+                        <!-- <template if:true={dontAnimate}> -->
                             <c-animation duration=1></c-animation>
-                        </template>
+                        <!-- </template> -->
                     </c-chart>
                     <template if:true={displayLegend}>
                         <p class="slds-text-title slds-text-color_weak slds-align_absolute-center">{legendLabel}</p>

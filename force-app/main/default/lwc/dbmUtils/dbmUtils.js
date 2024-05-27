@@ -1,5 +1,7 @@
 const MAX_NUM_GROUPINGS = 2;
 
+// const DEFAULT_REPORT_FOLDER_NAME = 'DBM Reports';
+
 const PREVIEW_PANE_SIZES = {
     HIDDEN: 'hidden',
     SMALL: 'small',
@@ -83,6 +85,7 @@ const defaultReportDetails = () => {
 const newGrouping = (index) => {
     let newGrouping = {
         dataSource: transformConstantObject(DATA_SOURCE_OPTIONS).default.value,
+        groupingNumber: (Number(index) + 1),
         inputLabel: 'Enter Name for Grouping #' + (Number(index) + 1),
         entries: [],
         presetEntries: []

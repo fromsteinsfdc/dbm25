@@ -6,7 +6,7 @@
 }
 
 .tableContainer {
-    overflow-x: auto;
+    overflow-x: scroll;
 }
 
 table {
@@ -70,12 +70,3 @@ lightning-input.selectedTableCell, lightning-input.selected {
 .toggleContainer {
     width: fit-content;
 }
-
-/* lightning-input[data-null-value="true"]:not(:focus-within) {
-    --slds-c-input-color-background: grey;
-} */
-
-/* .buttonContainer {
-    opacity: 0.1;
-    transition: opacity 0.2s;
-} */

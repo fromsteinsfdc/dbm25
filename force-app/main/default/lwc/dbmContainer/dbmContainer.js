@@ -52,21 +52,16 @@ export default class DbmContainer extends LightningElement {
         this.menuPanelIsOpen = !this.menuPanelIsOpen;
         let appContainer = this.template.querySelector('.appContainer');
         appContainer.classList.toggle('panelCollapsed');
-
-        // let panel = this.template.querySelector('.menuPanel');
-        // panel.classList.toggle('collapsed');
-
-        // if (!this.menuPanelIsOpen) {
-        //     panel.classList.add('collapsed');
-        // } else {
-        //     panel.classList.remove('collapsed');
-        // }
     }
 
     handleMenuPanelOptionClick(event) {
         console.log(`in handleMenuPanelOptionClick`);
         console.log(`${JSON.stringify(event.currentTarget.dataset)}`);
         this.selectMenuPanelOption(event.currentTarget.dataset.name);
+    }
+
+    handleReportDetailChange(event) {
+        console.log(`in dbmContainer, reportDetails: ${JSON.stringify(event.detail)}`);
     }
 
     /* UTILITY FUNCTIONS */

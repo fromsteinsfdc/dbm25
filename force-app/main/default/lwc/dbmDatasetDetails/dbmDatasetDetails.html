@@ -43,7 +43,7 @@
             <!-- </template>
             <template for:each={reportDetails.groupings} for:item="grouping" for:index="index"> -->
                 <div class="slds-col" key={grouping.value.index} data-is-disabled={grouping.value.isDisabled}>
-                    <lightning-input label={grouping.value.inputLabel} data-grouping={grouping.value.groupingName}
+                    <lightning-input class="groupingName" label={grouping.value.inputLabel} data-grouping={grouping.value.groupingName}
                         data-index={grouping.index} name="name" value={grouping.value.name} disabled={grouping.value.isDisabled}
                         onchange={handleGroupingDetailChange} required></lightning-input>
                     <c-fsc_combobox label="Select Data Source" data-grouping={grouping.value.groupingName} data-index={grouping.index}

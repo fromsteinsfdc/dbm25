@@ -1,12 +1,12 @@
 <template>
     <div class="actionBar slds-p-around_x-small">
         <lightning-button-icon icon-name="utility:question" tooltip="Randomize values" title="Randomize values"
-            onclick={handleRandomizeClick} class="slds-p-around_xxx-small"></lightning-button-icon>
+            onmousedown={handleRandomizeClick} class="slds-p-around_xxx-small"></lightning-button-icon>
         <lightning-button-icon icon-name="utility:clear" tooltip="Clear selected values" title="Clear selected values"
-            onclick={handleClearSelectedClick} class="slds-p-around_xxx-small"></lightning-button-icon>
-        <lightning-button-icon icon-name="utility:delete" tooltip="Clear all values" title="Clear selected values"
-            onclick={handleClearAllClick} class="slds-p-around_xxx-small"></lightning-button-icon>
-        <lightning-button label={saveBlankButton.label} onclick={handleSaveBlanksClick}
+            onmousedown={handleClearSelectedClick} class="slds-p-around_xxx-small"></lightning-button-icon>
+        <lightning-button-icon icon-name="utility:delete" tooltip="Clear all values" title="Clear all values"
+            onmousedown={handleClearAllClick} class="slds-p-around_xxx-small"></lightning-button-icon>
+        <lightning-button label={saveBlankButton.label} onmousedown={handleSaveBlanksClick}
             icon-name={saveBlankButton.iconName} variant={saveBlankButton.variant}></lightning-button>
     </div>
     <div class="tableContainer">
@@ -56,11 +56,14 @@
         <c-dbm-modal header="Randomize Values" oncancel={handleRandomizeModalCancel} onsave={handleRandomizeModalSave}>
             <div slot="modalContent">
                 <div class="slds-grid slds-gutters slds-p-vertical_x-small">
-                    <lightning-input label="Lower Bound" type="number" value={randomizeModal.lowerBound} data-property="lowerBound"
+                    <lightning-input label="Lower Bound" type="number" value={randomizeModal.lowerBound}
+                        data-property="lowerBound"
                         class="slds-col slds-size_1-of-3 randomizeLowerBound"></lightning-input>
-                    <lightning-input label="Upper Bound" type="number" value={randomizeModal.upperBound} data-property="upperBound"
+                    <lightning-input label="Upper Bound" type="number" value={randomizeModal.upperBound}
+                        data-property="upperBound"
                         class="slds-col slds-size_1-of-3 randomizeUpperBound"></lightning-input>
-                    <lightning-input label="Decimal Places" type="number" value={randomizeModal.numDecimals} min=0 max=6 data-property="numDecimals"
+                    <lightning-input label="Decimal Places" type="number" value={randomizeModal.numDecimals} min=0 max=6
+                        data-property="numDecimals"
                         class="slds-col slds-size_1-of-3 randomizeDecimals"></lightning-input>
                 </div>
                 <!-- <div class="slds-grid slds-gutters slds-p-vertical_x-small">
@@ -68,15 +71,15 @@
                     <lightning-combobox label="Overwrite" options={randomizeApplyTo.options} value={randomizeApplyTo.default.value} class="slds-col slds-size_1-of-1"></lightning-combobox>
                 </div> -->
                 <div class="toggleContainer">
-                    <lightning-input label="Apply to Selected Cells Only" type="toggle" 
+                    <lightning-input label="Apply to Selected Cells Only" type="toggle"
                         checked={randomizeModal.selectedOnly} data-property="selectedOnly"
                         message-toggle-active="Random values will populate only selected cells"
                         message-toggle-inactive="Random values will populate all cells"
                         class="slds-p-vertical_x-small randomizeApplyTo"></lightning-input>
                 </div>
                 <div class="toggleContainer">
-                    <lightning-input label="Overwrite Existing Values" type="toggle" 
-                        checked={randomizeModal.overwrite} data-property="overwrite"
+                    <lightning-input label="Overwrite Existing Values" type="toggle" checked={randomizeModal.overwrite}
+                        data-property="overwrite"
                         message-toggle-active="Random values will overwrite any existing values"
                         message-toggle-inactive="Random values will only populate blank cells"
                         class="slds-p-vertical_x-small randomizeOverwrite"></lightning-input>
