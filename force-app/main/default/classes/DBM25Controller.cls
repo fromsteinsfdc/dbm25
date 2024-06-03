@@ -1,7 +1,9 @@
-public without sharing class DBM25Controller {
+public with sharing class DBM25Controller {
 
     public class DBM25Exception extends Exception {}
-    public static Integer apiNameMaxLength = 40;    
+    public static final Integer apiNameMaxLength = 40;
+    public static String packageNamespace;
+    public static final String userObjectPrefix = '005';
     public static DescribeSObjectResult reportObjRes = DBM_Report__c.getSObjectType().getDescribe();
     public static DescribeSObjectResult dataEntryObjRes = DBM_Data_Entry__c.getSObjectType().getDescribe();
     public static DescribeFieldResult reportFieldRes = DBM_Data_Entry__c.Report__c.getDescribe();
@@ -11,6 +13,15 @@ public without sharing class DBM25Controller {
     public static DescribeFieldResult grouping1OrderFieldRes = DBM_Data_Entry__c.Grouping_1_Order__c.getDescribe();
     public static DescribeFieldResult grouping2OrderFieldRes = DBM_Data_Entry__c.Grouping_2_Order__c.getDescribe();
 
+    /* Will possibly use some of these fields in the future for displaying the grouping headings as links, 
+    but those links don't show up on dashboard charts anyway, so I'm not prioritizing it */
+    // public static DescribeFieldResult grouping1DisplayLabelFieldRes = DBM_Data_Entry__c.Grouping_1_Display_Label__c.getDescribe();
+    // public static DescribeFieldResult grouping2DisplayLabelFieldRes = DBM_Data_Entry__c.Grouping_2_Display_Label__c.getDescribe();
+    // public static DescribeFieldResult grouping1LinkToRecordFieldRes = DBM_Data_Entry__c.Grouping_1_Link_to_Record__c.getDescribe();
+    // public static DescribeFieldResult grouping2LinkToRecordFieldRes = DBM_Data_Entry__c.Grouping_2_Link_to_Record__c.getDescribe();
+    // public static DescribeFieldResult grouping1UserFieldRes = DBM_Data_Entry__c.Grouping_1_User__c.getDescribe();
+    // public static DescribeFieldResult grouping2UserFieldRes = DBM_Data_Entry__c.Grouping_2_User__c.getDescribe();
+
     public static Map<String, SObjectType> globalDescribe {
         get { 
             if (globalDescribe == null) {
@@ -18,6 +29,24 @@ public without sharing class DBM25Controller {
             }
             return globalDescribe;
         }
+    }
+
+    @AuraEnabled(cacheable=true)
+    public static String getPackageNamespace() {
+        if (String.isBlank(packageNamespace)) {
+            String namespacePrefix = '';
+            String[] classNameParts = String.valueOf(DBM25Controller.class).split('\\.', 2);
+            if(classNameParts.size() > 1) {
+                Type classType = Type.forName(classNameParts[0], classNameParts[1]);
+                if(classType == DBM25Controller.class) {
+                    namespacePrefix = classNameParts[0];
+                } else {
+                    namespacePrefix = '';
+                }
+            }        
+            packageNamespace = namespacePrefix;            
+        }
+        return packageNamespace;
     }
 
     @AuraEnabled
@@ -43,6 +72,28 @@ public without sharing class DBM25Controller {
         } catch (Exception e) {
             System.debug('Error: '+ e.getMessage());
             return null;
+        }
+    }
+
+    @AuraEnabled
+    public static List<DBM_Report__c> getReportDetailRecords() {
+        List<DBM_Report__c> reportDetailRecords = [SELECT 
+            Id, Name, Metric_Label__c, Metric_Type__c, Number_of_Groupings__c, Report_Folder_name__c, Report_ID__c, LastModifiedDate, 
+            (SELECT Name, Id, Grouping_Number__c, Data_Source__c, Object_Name__c, Field_Name__c, Display_as_Link__c FROM DBM_Report_Groupings__r ORDER BY Grouping_Number__c ASC), 
+            (SELECT Name, Id, Grouping__c, Grouping_Order__c, Record_ID__c, User__c FROM DBM_Report_Grouping_Entries__r ORDER BY Grouping_Order__c ASC),
+            (SELECT Id, Name, Value__c, Grouping_1__c, Grouping_2__c FROM DBM_Data_Entries__r) 
+            FROM DBM_Report__c ORDER BY LastModifiedDate DESC];
+        return reportDetailRecords;
+    }
+
+    @AuraEnabled
+    public static String deleteReports(List<Id> reportDetailRecordIds, List<Id> reportIds){
+        try {
+            delete [SELECT Id FROM DBM_Report__c WHERE Id IN: reportDetailRecordIds];
+            // delete [SELECT Id FROM Report WHERE Id IN: reportIds];
+            return null;
+        } catch (Exception e) {
+            return e.getMessage();
         }
     }
 
@@ -76,7 +127,8 @@ public without sharing class DBM25Controller {
             newGrouping.Name = (String)groupingObject.get('name');
             newGrouping.Data_Source__c = (String)groupingObject.get('dataSource');
             newGrouping.Object_Name__c = (String)groupingObject.get('objectName');
-            newGrouping.Field_Name__c = (String)groupingObject.get('fieldName');            
+            newGrouping.Field_Name__c = (String)groupingObject.get('fieldName');
+            newGrouping.Grouping_Number__c = (Integer)groupingObject.get('groupingNumber');
             groupingEntryMap.put(newGrouping.Name, new List<DBM_Report_Grouping_Entry__C>());
             newGroupings.add(newGrouping);
 
@@ -87,12 +139,15 @@ public without sharing class DBM25Controller {
                 // Define the new DBM_Report_Grouping_Entry__C based on values in the request and add it to the map based on the parent grouping's name
                 DBM_Report_Grouping_Entry__C newGroupingEntry = new DBM_Report_Grouping_Entry__C();
                 newGroupingEntry.Name = (String)groupingEntryObject.get('value');
-                newGroupingEntry.Record_ID__c = (String)groupingEntryObject.get('recordId');
+                String recordId = String.valueOf(groupingEntryObject.get('recordId'));
+                newGroupingEntry.Record_ID__c = recordId;
+                if (!String.isBlank(recordId) && recordId.startsWith(userObjectPrefix)) {
+                    newGroupingEntry.User__c = newGroupingEntry.Record_ID__c;
+                }
                 newGroupingEntry.Grouping_Order__c = groupingOrder;
                 groupingEntryMap.get(newGrouping.Name).add(newGroupingEntry);
                 groupingOrder++;
             }
-
         }
         insert newGroupings;
 
@@ -118,6 +173,10 @@ public without sharing class DBM25Controller {
             List<Object> cells = (List<Object>)dataRows[rowIndex];
             // Loop through each cell in the row
             for (integer colIndex=0; colIndex<cells.size(); colIndex++) {
+                // If the value of the Data Entry is blank, don't bother creating a record for it
+                if (String.isBlank(String.valueOf(cells[colIndex]))) {
+                    continue;
+                }
                 // Define the new DBM_Data_Entry__c record
                 DBM_Data_Entry__c newDataEntry = new DBM_Data_Entry__c();
                 newDataEntry.Grouping_1__c = groupingEntryMap.get(newGroupings[0].Name)[rowIndex].Id;
@@ -145,30 +204,21 @@ public without sharing class DBM25Controller {
         return service;
     }
 
-    // public static MetadataService.SaveResult createReport(String folderName, String reportName, String primaryGrouping, String secondaryGrouping, String metricName, String metricType) {
     @AuraEnabled
-    public static void createReport(Id reportId) {
-        System.debug('in createReport, reportId = '+ reportId);
-        // generateReport(reportId);
-        generateReport(reportId);
+    public static void createReport(Id reportDetailsRecordId) {
+        System.debug('in createReport, reportDetailsRecordId = '+ reportDetailsRecordId);
+        generateReport(reportDetailsRecordId);
     }
 
     @Future(callout=true)
-    public static void generateReport(Id reportId) {
-        System.debug('in generateReport: '+ reportId);
-        MetadataService.MetadataPort service = createService();
-        // readReport(service);
-        // generateReport(service, reportId);
-    // }
-
-    // // @Future(callout=true)
-    // public static void generateReport(MetadataService.MetadataPort service, Id reportId) {
+    public static void generateReport(Id reportDetailsRecordId) {
+        System.debug('in generateReport: '+ reportDetailsRecordId);
         try {
-            // MetadataService.MetadataPort service = createService();
+            MetadataService.MetadataPort service = createService();
             MetadataService.Report newReport = new MetadataService.Report();
 
-            DBM_Report__c report = [SELECT Name, Metric_Label__c, Metric_Type__c, Metric_type_enum__c, Report_Folder_Name__c FROM DBM_Report__c WHERE Id =: reportId];
-            System.debug('report = '+ report);
+            DBM_Report__c reportDetailsRecord = [SELECT Name, Metric_Label__c, Metric_Type__c, Metric_type_enum__c, Report_Folder_Name__c, Number_of_Groupings__c FROM DBM_Report__c WHERE Id =: reportDetailsRecordId];
+            System.debug('reportDetailsRecord = '+ reportDetailsRecord);
 
             /* Do some metadata processing */
             MetadataService.ReportColumn[] columns = new List<MetadataService.ReportColumn>();
@@ -178,82 +228,63 @@ public without sharing class DBM25Controller {
             MetadataService.ReportFilter filter = new MetadataService.ReportFilter();
             MetadataService.ReportChart chart = null;//getMetadataChart(fakeObjRes.getName() + '.' + columnFieldNames[0]);
             
-            /*
-            DescribeFieldResult[] describeFieldResults = new DescribeFieldResult[] { valueFieldRes, grouping1OrderFieldRes, grouping2OrderFieldRes };
-            System.debug('columnFieldNames = '+ columnFieldNames);        
-            for (DescribeFieldResult fieldRes : describeFieldResults) {
-                String fullFieldName = dataEntryObjRes.getName() +'.'+ fieldRes.getName();
-                String fieldType = fieldRes.getType().name().toLowerCase();
-                boolean isNumber = fieldType == 'integer' || fieldType == 'percent' || fieldType == 'currency' || fieldType == 'double' || fieldType == 'long';            
-                columns.add(getMetadataColumn(fullFieldName, isNumber));
-            }
-            */
             columns.add(getMetadataColumn(dataEntryObjRes.getName() +'.'+ valueFieldRes.getName(), true));
             columns.add(getMetadataColumn(dataEntryObjRes.getName() +'.'+ grouping1OrderFieldRes.getName(), true));
-            columns.add(getMetadataColumn(dataEntryObjRes.getName() +'.'+ grouping2OrderFieldRes.getName(), true));
-            columns.add(getMetadataColumn('CUST_NAME', false)); // seems to be the format for getting the object's name field
+            if (reportDetailsRecord.Number_of_Groupings__c == 2) {
+                columns.add(getMetadataColumn(dataEntryObjRes.getName() +'.'+ grouping2OrderFieldRes.getName(), true));
+            }
+            columns.add(getMetadataColumn('CHILD_NAME', false)); // DBM_Data_Entry__c object name
             System.debug('columns = '+ columns);
 
             List<DescribeFieldResult> groupingFieldResults = new DescribeFieldResult[] { grouping1FieldRes, grouping2FieldRes };
             integer groupingIndex = 0;
-            for (DBM_Report_Grouping__c grouping : [SELECT Name FROM DBM_Report_Grouping__c WHERE Report__c =: reportId]) {
+            for (DBM_Report_Grouping__c grouping : [SELECT Name FROM DBM_Report_Grouping__c WHERE Report__c =: reportDetailsRecordId]) {
+                // String fieldName = 
                 MetadataService.ReportBucketField bucket = getMetadataBucket(dataEntryObjRes.getName() + '.'+ groupingFieldResults[groupingIndex].getName(), grouping.Name, groupingIndex);
                 buckets.add(bucket);
-                groupings.add(getMetadataGrouping(bucket.developerName));
+                String sortByName = dataEntryObjRes.getName() +'.'+ (groupingIndex == 0 ? grouping1OrderFieldRes.getName() : grouping2OrderFieldRes.getName());
+                groupings.add(getMetadataGrouping(bucket.developerName, sortByName));
                 groupingIndex++;
             }
 
-            /*
-            if (primaryGrouping != null) {
-                MetadataService.ReportBucketField bucket = getMetadataBucket(fakeObjRes.getName() + '.'+ fakeObjectFields.get('primaryGrouping'), primaryGrouping, 0);
-                buckets.add(bucket);
-                groupings.add(getMetadataGrouping(bucket.developerName));
-                //chart.groupingColumn = bucket.developerName;
-            }
-            System.debug('secondaryGrouping = '+ secondaryGrouping);
-            if (secondaryGrouping != null) {
-                MetadataService.ReportBucketField bucket = getMetadataBucket(fakeObjRes.getName() +'.'+ fakeObjectFields.get('secondaryGrouping'), secondaryGrouping, 1);
-                buckets.add(bucket);
-                groupings.add(getMetadataGrouping(bucket.developerName));
-                //chart.secondaryGroupingColumn = bucket.developerName;
-            }
-            */
             for (MetadataService.ReportBucketField bucket : buckets)
                 System.debug('bucket = '+ bucket.masterLabel +', '+ bucket.sourceColumnName +', '+ bucket.developerName);            
 
-            aggregates.add(getFormulaColumn(report.Metric_Label__c, report.Metric_type_enum__c));
+            aggregates.add(getFormulaColumn(reportDetailsRecord.Metric_Label__c, reportDetailsRecord.Metric_type_enum__c));
             System.debug(aggregates[0]);
             System.debug(aggregates[0].masterLabel);
 
-            filter = getMetadataFilter(report.Id);
+            filter = getMetadataFilter(reportDetailsRecord.Id);
             /* End metadata processing */
 
             newReport.type = 'Report';  // type of metadata
-            // newReport.reportType = 'CustomEntity$' + dataEntryObjRes.getName(); // data source, i.e. sobject(s)
-            newReport.reportType = 'CustomEntityCustomEntity$dbm2__DBM_Report__c$dbm2__DBM_Data_Entry__c'; // data source, i.e. sobject(s)
-            newReport.name = report.Name.left(apiNameMaxLength);
-            newReport.folderName = report.Report_Folder_Name__c;
-            newReport.fullName = report.Report_Folder_Name__c +'/DBM'+ Datetime.now().getTime();
-            newReport.columns = columns; // public MetadataService.ReportColumn[] columns;
-            newReport.buckets = buckets; // public MetadataService.ReportBucketField[] buckets;
-            newReport.chart = chart; // public MetadataService.ReportChart chart;
-            newReport.groupingsDown = groupings; // MetadataService.ReportGrouping[]
-            newReport.filter = filter; // MetadataService.ReportFilter
+            newReport.reportType = 'CustomEntityCustomEntity$'+ reportObjRes.getName() +'$'+ dataEntryObjRes.getName(); // data source, i.e. sobject(s)
+            newReport.name = reportDetailsRecord.Name.left(apiNameMaxLength);
+            newReport.folderName = reportDetailsRecord.Report_Folder_Name__c;
+            String developerName = 'DBM'+ Datetime.now().getTime();
+            newReport.fullName = reportDetailsRecord.Report_Folder_Name__c +'/'+ developerName;
+            newReport.columns = columns;
+            newReport.buckets = buckets;
+            newReport.aggregates = aggregates;
+            newReport.groupingsDown = groupings;
+            newReport.filter = filter;
+            newReport.chart = chart; // TODO: add chart
             newReport.format = Reports.ReportFormat.SUMMARY.name();
             newReport.scope = 'organization';   // no idea what this does, but it seems to work
-            newReport.showDetails = true;   // personal preference
-            newReport.aggregates = aggregates; //public MetadataService.ReportAggregate[] aggregates;
+            newReport.showDetails = true;   // personal preference            
             System.debug('newReport = '+ newReport);
             System.debug('newReport.reportType = '+ newReport.reportType);
             // Create the report clone
-            MetadataService.SaveResult
-            result = service.createMetadata(new MetadataService.Metadata[] { newReport })[0];
-            System.debug('final save result = '+ result);
-            // Handle results
+            MetadataService.SaveResult result = service.createMetadata(new MetadataService.Metadata[] { newReport })[0];
             handleSaveResults(result);
+            System.debug('final save result = '+ result);
+            Report insertedReport = [SELECT Id FROM Report WHERE DeveloperName =: developerName];
+            reportDetailsRecord.Report_ID__c = insertedReport.Id;
+            update reportDetailsRecord;
+            // Handle results
             // return result;
             if (result.success) {       
-                DBM_Event__e successEvent = new DBM_Event__e(Report_Id__c = reportId, Message__c = 'Success: '+ result.fullName);
+                DBM_Event__e successEvent = new DBM_Event__e(Report_ID__c = insertedReport.Id, Report_Details_Record_ID__c = reportDetailsRecordId, Message__c = 'Success: '+ result.fullName, Is_Success__c = true);
                 Database.SaveResult messageResult = EventBus.publish(successEvent);
                 if (messageResult.isSuccess()) {
                     System.debug('Successfully published event.');
@@ -264,7 +295,7 @@ public without sharing class DBM25Controller {
                 }           
             }
         } catch (Exception e) {
-            DBM_Event__e failureEvent = new DBM_Event__e(Message__c = 'Failure: '+ e.getMessage());
+            DBM_Event__e failureEvent = new DBM_Event__e(Message__c = 'Failure: '+ e.getMessage(), Is_Success__c = false);
             Database.SaveResult messageResult = EventBus.publish(failureEvent);
             if (messageResult.isSuccess()) {
                 System.debug('Successfully published failure event.');
@@ -301,30 +332,45 @@ public without sharing class DBM25Controller {
        return newBucket;
     }
 
-    public static MetadataService.ReportGrouping getMetadataGrouping(String fieldDeveloperName) {
+    public static MetadataService.ReportGrouping getMetadataGrouping(String fieldDeveloperName, String sortByName) {
         MetadataService.ReportGrouping newGrouping = new MetadataService.ReportGrouping();
-        newGrouping.sortType = null;
+        newGrouping.sortType = 'Aggregate';
         newGrouping.sortOrder = 'Asc';
-        newGrouping.sortByName = null;
+        newGrouping.sortByName = sortByName;
         newGrouping.field = fieldDeveloperName;
         newGrouping.dateGranularity = 'Day';
         newGrouping.aggregateType = 'Sum';
         return newGrouping;
     }
 
-    public static MetadataService.ReportFilter getMetadataFilter(Id reportId) {
+    public static MetadataService.ReportFilter getMetadataFilter(Id reportDetailsRecordId) {
         MetadataService.ReportFilterItem newFilterItem = new MetadataService.ReportFilterItem();
         // newFilterItem.column = dataEntryObjRes.getName() + '.'+ reportFieldRes.getName();
         newFilterItem.column = 'CUST_ID';
         system.debug('newFilterItem.column = '+ newFilterItem.column);
         newFilterItem.isUnlocked = true;
         newFilterItem.operator = 'equals';
-        newFilterItem.value = reportId;
+        newFilterItem.value = reportDetailsRecordId;
         MetadataService.ReportFilterItem[] newFilterItems = new List<MetadataService.ReportFilterItem>{newFilterItem};
         MetadataService.ReportFilter newFilter = new MetadataService.ReportFilter();
         newFilter.criteriaItems = newFilterItems;
         return newFilter;
     }
+
+    public static MetadataService.ReportChart getMetadataChart(Id reportDetailsRecordId) {
+        MetadataService.ReportChart newChart = new MetadataService.ReportChart();
+        // newChart.chartType;
+        // newChart.groupingColumn;
+        // newChart.secondaryGroupingColumn;
+        newChart.legendPosition = 'Right';
+        newChart.location = 'CHART_TOP';
+        newChart.showAxisLabels = true;
+        newChart.size = 'Medium';
+        newChart.summaryAxisRange = 'Auto';
+        // newChart.title;
+        return newChart;
+    }
+
 
     public static MetadataService.ReportAggregate getFormulaColumn(String label, String datatype) {
         if(datatype == null) {
@@ -368,10 +414,17 @@ public without sharing class DBM25Controller {
     }
 
     // Used for testing/debugging purposes
-    public static void readReport(MetadataService.MetadataPort service) {
+    public static void readReport(String fullName) {
+        MetadataService.MetadataPort service = createService();
         System.debug('reading existing report');
-        MetadataService.Report reportToClone = (MetadataService.Report) service.readMetadata('Report', new String[] { 'dbm2__TestDBMFolder/dbm2__Fake1716792392347' }).getRecords()[0];        
+        // 'dbm2__TestDBMFolder/dbm2__Fake1716792392347'
+        MetadataService.Report reportToClone = (MetadataService.Report) service.readMetadata('Report', new String[] { fullName }).getRecords()[0];        
         System.debug('aggregates.size = '+ reportToClone.aggregates.size());
         System.debug('aggregates = '+ reportToClone.aggregates[0]);
+        for (MetadataService.ReportColumn col : reportToClone.columns) {
+            System.debug(col);
+        }
+        System.debug(reportToClone.chart);
+        
     }
 }

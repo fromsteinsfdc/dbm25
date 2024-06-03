@@ -1,0 +1,99 @@
+<template>
+    <section>
+        <!-- <template lwc:if={showSpinner}>
+            <lightning-spinner></lightning-spinner>
+        </template> -->
+        <template lwc:if={tableRows.length}>
+            <!-- <lightning-datatable key-field="Id" data={reportDetailRecords} columns={columns} onrowaction={handleRowAction} onsort={handleColumnSort} onrowselection={handleRowSelection} sorted-by={sortedBy} sorted-direction={sortDirection}></lightning-datatable> -->
+            <div class="tableActions slds-p-vertical_small slds-clearfix">
+                <div class="slds-float_left">
+                    <template for:each={rowActions} for:item="action">
+                        <lightning-button-icon icon-name={action.iconName} class="slds-p-horizontal_xxx-small"
+                            disabled={action.isDisabled} tooltip={action.tooltip} alternative-text={action.title}
+                            title={action.title} key={action.name} onclick={action.onclick}></lightning-button-icon>
+                    </template>
+                    <!-- <lightning-button-icon icon-name="utility:open" class="slds-p-horizontal_xxx-small"
+                        disabled={disableSingleRowActions}></lightning-button-icon>
+                    <lightning-button-icon icon-name="utility:copy"
+                        class="slds-p-horizontal_xxx-small" disabled={disableSingleRowActions}></lightning-button-icon>
+                    <lightning-button-icon icon-name="utility:copy_to_clipboard"
+                        class="slds-p-horizontal_xxx-small" disabled={disableSingleRowActions}></lightning-button-icon>
+                    <lightning-button-icon icon-name="utility:new_window"
+                        class="slds-p-horizontal_xxx-small" disabled={disableSingleRowActions}></lightning-button-icon>
+                    <lightning-button-icon icon-name="utility:preview"
+                        class="slds-p-horizontal_xxx-small" disabled={disableSingleRowActions}></lightning-button-icon>
+                    <lightning-button-icon icon-name="utility:delete"
+                        class="slds-p-horizontal_xxx-small" disabled={disableSingleRowActions}></lightning-button-icon> -->
+                </div>
+                <!-- <div class="slds-float_right"> -->
+                <lightning-input type="search" placeholder="Type to filter list"
+                    class="slds-p-horizontal_xx-small slds-float_right" variant="label-hidden"
+                    onchange={handleSearchChange}></lightning-input>
+                <lightning-button label="New Dataset" onclick={handleNewDatasetClick}
+                    class="slds-p-horizontal_xx-small slds-float_right"></lightning-button>
+                <!-- </div> -->
+            </div>
+            <table class="slds-table slds-table_cell-buffer slds-table_bordered"
+                aria-labelledby="element-with-table-label other-element-with-table-label">
+                <thead>
+                    <tr class="slds-line-height_reset">
+                        <th class="slds-text-align_right slds-cell_action-mode" scope="col" style="width:3.25rem">
+                            <lightning-input type="checkbox" checked={allRowsSelected}
+                                onchange={handleSelectAllChange}></lightning-input>
+                        </th>
+                        <template for:each={columns} for:item="col">
+                            <th scope="col" key={col.fieldName}>
+                                <div class="slds-truncate" title={col.label}>
+                                    {col.label}
+                                </div>
+                            </th>
+                        </template>
+                    </tr>
+                </thead>
+                <tbody>
+                    <template for:each={tableRows} for:item="row" for:index="rowIndex">
+                        <template lwc:if={row.isHidden}></template>
+                        <template lwc:else>
+                            <tr class="slds-hint-parent" key={row.Id} data-row-index={rowIndex}
+                                onclick={handleRowClick}>
+                                <td class="slds-text-align_right slds-cell_action-mode" role="gridcell">
+                                    <lightning-input type="checkbox" checked={row.isSelected}
+                                        onchange={handleRowSelectChange} data-row-index={rowIndex}></lightning-input>
+                                </td>
+                                <template for:each={row.fields} for:item="field">
+                                    <template lwc:if={field.isFirst}>
+                                        <th data-label={field.label} scope="row" key={field.fieldName}>
+                                            <div class="slds-truncate" title={field.value}>
+                                                <span class="slds-text-link" data-row-index={rowIndex}
+                                                    data-row-id={row.id}
+                                                    onclick={handleRecordNameClick}>{field.value}</span>
+                                            </div>
+                                        </th>
+                                    </template>
+                                    <template lwc:else>
+                                        <td data-label={field.label} key={field.fieldName}>
+                                            <div class="slds-truncate" title={field.value}>
+                                                <template lwc:if={field.isdate}>
+                                                    <lightning-formatted-date-time value={field.value} month="numeric"
+                                                        day="numeric" year="numeric" hour="numeric"
+                                                        minute="2-digit"></lightning-formatted-date-time>
+                                                </template>
+                                                <template lwc:else>
+                                                    {field.value}
+                                                </template>
+                                            </div>
+                                        </td>
+                                    </template>
+                                </template>
+                            </tr>
+                        </template>
+                    </template>
+                </tbody>
+            </table>
+
+        </template>
+        <template lwc:else>
+            No report records exist yet
+        </template>
+    </section>
+</template>

@@ -152,14 +152,15 @@
     <enableSearch>true</enableSearch>
     <enableSharing>false</enableSharing>
     <enableStreamingApi>false</enableStreamingApi>
-    <externalSharingModel>Private</externalSharingModel>
+    <externalSharingModel>ControlledByParent</externalSharingModel>
     <label>DBM Data Entry</label>
     <nameField>
-        <label>DBM Data Entry Name</label>
-        <type>Text</type>
+        <displayFormat>DBMDE-{0000}</displayFormat>
+        <label>DBM Data Entry Number</label>
+        <type>AutoNumber</type>
     </nameField>
     <pluralLabel>DBM Data Entries</pluralLabel>
     <searchLayouts></searchLayouts>
-    <sharingModel>ReadWrite</sharingModel>
+    <sharingModel>ControlledByParent</sharingModel>
     <visibility>Public</visibility>
 </CustomObject>

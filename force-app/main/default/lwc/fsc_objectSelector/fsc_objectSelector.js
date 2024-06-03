@@ -57,7 +57,7 @@ export default class Fsc_objectSelector extends LightningElement {
         return this._availableObjectSelection;
     }
     set availableObjectSelection(value) {
-        console.log(' in set availableObjectSelection to ' + value);
+        // console.log(' in set availableObjectSelection to ' + value);
         this._availableObjectSelection = value;
         if (this.hasConnected && this.values.length) {
             this.values = [];

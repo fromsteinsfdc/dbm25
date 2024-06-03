@@ -22,8 +22,8 @@
     transition-duration: 0.3s;
     transition-timing-function: ease-in-out;
     top: 0;
-    width: calc(100% - var(--panel-width));
-    margin-left: var(--panel-width);
+    /* width: calc(100% - var(--panel-width)); */
+    /* margin-left: var(--panel-width); */
 }
 
 .appBody {

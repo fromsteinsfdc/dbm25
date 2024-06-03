@@ -17,13 +17,13 @@ export default class DbmDatasetData extends LightningElement {
     set reportDetails(value) {
         this._reportDetails = JSON.parse(JSON.stringify(value));
     }
+    _reportDetails;
 
     @api
     preventClearSelection() {
         return this.showRandomizeModal;
     }
 
-    @track _reportDetails;
     @track dragOriginCell = {};
     @track dragOriginHeader = {};
     // @track activeDrag;

@@ -1,20 +1,24 @@
 <template>
-    
-    <template lwc:if={showSpinner}>
-        <lightning-spinner></lightning-spinner>
-    </template>
     <div class="builderContainer slds-grid slds-grid_vertical">
-        showSpinner = {showSpinner}<br>
-        <!-- {reportDetailsString}
-        <lightning-button variant="error" label="Generate report"
-            onclick={handleGenerateReportClick}></lightning-button> -->
+        <template lwc:if={showSpinner}>
+            <lightning-spinner></lightning-spinner>
+        </template>
+        <!-- {reportDetailsString} -->
         <div class="builderHeader slds-grid slds-grid_vertical-align-center slds-p-vertical_x-small slds-border_bottom">
-            <lightning-button label="Back" onclick={handleBackButtonClick}
-                disabled={backButtonIsDisabled}></lightning-button>
-            <c-stage-path stages={builderSteps} current-stage-index={currentStepIndex} onstageclick={handleStepClick}
-                class="slds-col slds-p-horizontal_x-small"></c-stage-path>
-            <lightning-button label={nextButton.label} variant={nextButton.variant}
-                onclick={handleNextButtonClick}></lightning-button>
+            <div class="builderActions slds-p-right_small slds-border_right">
+                <lightning-button-icon icon-name="utility:back" variant="brand" onclick={handleBackToListViewClick}></lightning-button-icon>
+                <lightning-button-icon icon-name="utility:copy_to_clipboard" onclick={handleCopyToClipboardClick}></lightning-button-icon>
+                <lightning-button-icon icon-name="utility:undo"></lightning-button-icon>
+                <lightning-button-icon icon-name="utility:redo"></lightning-button-icon>
+            </div>
+            <div class="builderNav slds-col slds-grid slds-grid_vertical-align-center">
+                <lightning-button label="Back" onclick={handleBackButtonClick}
+                    disabled={backButtonIsDisabled}></lightning-button>
+                <c-stage-path stages={builderSteps} current-stage-index={currentStepIndex}
+                    onstageclick={handleStepClick} class="slds-col slds-p-horizontal_x-small"></c-stage-path>
+                <lightning-button label={nextButton.label} variant={nextButton.variant} disabled={nextButton.isDisabled}
+                    onclick={handleNextButtonClick}></lightning-button>
+            </div>
         </div>
         <div class="builderBody slds-col slds-grid slds-gutters">
             <div class="contentPane slds-col" onmouseup={handleContentPaneMouseUp}>
@@ -22,19 +26,34 @@
                     <c-dbm-dataset-details report-details={reportDetails}
                         onreportdetailchange={handleReportDetailChange}></c-dbm-dataset-details>
                 </template>
-                <template lwc:if={currentStepIs.groupings}>
+                <template lwc:elseif={currentStepIs.groupings}>
                     <c-dbm-dataset-groupings report-details={reportDetails}
                         onreportdetailchange={handleReportDetailChange}></c-dbm-dataset-groupings>
                 </template>
-                <template lwc:if={currentStepIs.data}>
+                <template lwc:elseif={currentStepIs.data}>
                     <c-dbm-dataset-data report-details={reportDetails}
                         onreportdetailchange={handleReportDetailChange}></c-dbm-dataset-data>
                 </template>
-                <template lwc:if={currentStepIs.finalize}>
+                <template lwc:elseif={currentStepIs.finalize}>
                     <c-dbm-dataset-finalize report-details={reportDetails} folders-list={reportFolders}
                         onreportdetailchange={handleReportDetailChange}></c-dbm-dataset-finalize>
                 </template>
+                <template lwc:else>
+                    <div class="successMessage slds-p-vertical_small">
+                        <p class="slds-text-heading_small">Congratulations, your dataset has been successfully saved as
+                            a report.</p>
+                        <div class="slds-align_absolute-center slds-p-around_small">
+                            <lightning-button label="Back to List" onclick={handleBackToListViewClick}
+                                class="slds-m-around_xx-small"></lightning-button>
+                            <a class="slds-button slds-button_outline-brand slds-m-around_xx-small" href={reportLink}
+                                target="_blank">Open Report</a>
+                            <lightning-button label="Create Another Report" variant="brand" onclick={resetBuilder}
+                                class="slds-m-around_xx-small"></lightning-button>
+                        </div>
+                    </div>
+                </template>
             </div>
+
             <div class="previewPane" style={previewPaneStyle}>
                 <template lwc:if={showPreviewEnlargeButton}>
                     <lightning-button-icon class="previewEnlargeButton" icon-name="utility:left" variant="bare"
@@ -52,14 +71,13 @@
     </div>
 
     <template lwc:if={showSubmitModal}>
-        <c-dbm-modal header="Save and Generate Report">
+        <c-dbm-modal header="Save and Generate Report" oncancel={handleSubmitModalCancelClick}>
             <div slot="modalContent">
                 <p>Clicking the Confirm button below will save the dataset you've created as DBM records, as well as
                     generate a report to be used for dashboards and charts. Do you want to proceed?</p>
             </div>
             <div slot="footer">
                 <template lwc:if={reportDetails.reportId}>
-                    <!-- <lightning-button  -->
                 </template>
                 <template lwc:else>
                     <div class="footerButtonsContainer slds-align_absolute-center">

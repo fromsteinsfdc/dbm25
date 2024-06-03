@@ -1,4 +1,5 @@
 const MAX_NUM_GROUPINGS = 2;
+const NAMESPACE = 'dbm2';
 
 // const DEFAULT_REPORT_FOLDER_NAME = 'DBM Reports';
 
@@ -36,6 +37,25 @@ const DATA_SOURCE_OPTIONS = {
     QUARTERS: { label: 'Quarters (Q1-Q4)', value: 'quarters', grouping: 'Preset Values', presetEntries: ['Q1', 'Q2', 'Q3', 'Q4'] },
     PRIORITIES: { label: 'Priorities (Low-Critical)', value: 'priorities', grouping: 'Preset Values' },
 };
+
+const EVENTS = {
+    NAVIGATE: 'navigate',
+    REPORT_DETAIL_CHANGE: 'reportdetailchange',
+    COPY_TO_CLIPBOARD: 'copy',
+    REFRESH_RECORDS: 'refreshrecords',
+    TARGETS: {
+        LIST_VIEW: 'listView',
+        DATASET_BUILDER: 'datasetBuilder'
+    }
+}
+
+const NAVIGATION = {
+    EVENT_NAME: 'navigate',
+    TARGETS: {
+        LIST_VIEW: 'listView',
+        DATASET_BUILDER: 'datasetBuilder'
+    }
+}
 
 const CHART_TYPES = [
     { label: 'Vertical Bar Chart', style: 'bar', name: 'vbar', multiGroupings: [true, false] },
@@ -107,7 +127,6 @@ const switchGroupings = (reportDetails) => {
     })
     reportDetails.data = datasets;
     return reportDetails;
-
 }
 
 const validate = () => {
@@ -137,4 +156,4 @@ const transformConstantObject = (constant) => {
     }
 }
 
-export { PREVIEW_PANE_SIZES, METRIC_TYPES, METRIC_NAMES, NUM_GROUPINGS_OPTIONS, DATA_SOURCE_OPTIONS, CHART_TYPES, CHART_COLOURS, VALIDATEABLE_COMPONENTS, defaultReportDetails, newGrouping, switchGroupings, validate, transformConstantObject };
+export { NAMESPACE, PREVIEW_PANE_SIZES, METRIC_TYPES, METRIC_NAMES, NUM_GROUPINGS_OPTIONS, DATA_SOURCE_OPTIONS, NAVIGATION, EVENTS, CHART_TYPES, CHART_COLOURS, VALIDATEABLE_COMPONENTS, defaultReportDetails, newGrouping, switchGroupings, validate, transformConstantObject };
