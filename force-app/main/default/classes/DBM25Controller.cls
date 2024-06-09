@@ -2,8 +2,12 @@ public with sharing class DBM25Controller {
 
     public class DBM25Exception extends Exception {}
     public static final Integer apiNameMaxLength = 40;
-    public static String packageNamespace;
     public static final String userObjectPrefix = '005';
+    public static final String SUCCESS = 'success';
+    public static final String ERROR = 'error';
+    
+    public static String packageNamespace;
+    
     public static DescribeSObjectResult reportObjRes = DBM_Report__c.getSObjectType().getDescribe();
     public static DescribeSObjectResult dataEntryObjRes = DBM_Data_Entry__c.getSObjectType().getDescribe();
     public static DescribeFieldResult reportFieldRes = DBM_Data_Entry__c.Report__c.getDescribe();
@@ -98,104 +102,127 @@ public with sharing class DBM25Controller {
     }
 
     @AuraEnabled
-    public static String saveReportDetails(String reportDetailsString) {
-        // Deserialize the `reportDetails` JSON object into a map of Apex objects
-        Map<String, Object> requestObject = (Map<String, Object>)JSON.deserializeUntyped(reportDetailsString);
-        
-        // Define and insert the DBM_Report__c record with values from the request
-        DBM_Report__c newReport = new DBM_Report__c();
-        newReport.Name = (String)requestObject.get('reportName');
-        newReport.Metric_Label__c = (String)requestObject.get('metricLabel');
-        newReport.Metric_Type__c = (String)requestObject.get('metricType');
-        newReport.Report_Folder_name__c = (String)requestObject.get('folderDeveloperName');
-        insert newReport;
-
-        // Define the list of new DBM_Report_Grouping__c records
-        List<DBM_Report_Grouping__c> newGroupings = new List<DBM_Report_Grouping__c>();
-        // Define a map of grouping names to the list of grouping entries, so that we can populate the lookup IDs later on
-        Map<String, List<DBM_Report_Grouping_Entry__C>> groupingEntryMap = new Map<String, List<DBM_Report_Grouping_Entry__C>>();
-        // Loop through the groupings
-        for (Object grouping : (List<Object>)requestObject.get('groupings')) {
-            Map<String, Object> groupingObject = (Map<String, Object>) grouping;
-            // If this grouping is disabled, skip it
-            if (Boolean.valueOf(groupingObject.get('isDisabled'))) {
-                continue;
+    public static Map<String, Object> saveReportDetails(String reportDetailsString) {
+        Map<String, Object> returnMap = new Map<String, Object>();
+        try {
+            // Deserialize the `reportDetails` JSON object into a map of Apex objects
+            Map<String, Object> requestObject = (Map<String, Object>)JSON.deserializeUntyped(reportDetailsString);
+            
+            // Delete any existing child records from the report, if it exists
+            List<DBM_Report__c> existingReports = [SELECT Id FROM DBM_Report__c WHERE Id =: (String)requestObject.get('id')];
+            if (existingReports.size() > 0) {
+                delete [SELECT Id FROM DBM_Report_Grouping__c WHERE Report__c =: existingReports[0].Id];
+                delete [SELECT Id FROM DBM_Data_Entry__c WHERE Report__c =: existingReports[0].Id];
             }
-            // Define the new DBM_Report_Grouping__c record based on values in the request and add it to both the list and the map
-            DBM_Report_Grouping__c newGrouping = new DBM_Report_Grouping__c();
-            newGrouping.Report__c = newReport.Id;
-            newGrouping.Name = (String)groupingObject.get('name');
-            newGrouping.Data_Source__c = (String)groupingObject.get('dataSource');
-            newGrouping.Object_Name__c = (String)groupingObject.get('objectName');
-            newGrouping.Field_Name__c = (String)groupingObject.get('fieldName');
-            newGrouping.Grouping_Number__c = (Integer)groupingObject.get('groupingNumber');
-            groupingEntryMap.put(newGrouping.Name, new List<DBM_Report_Grouping_Entry__C>());
-            newGroupings.add(newGrouping);
 
-            // Loop through each of the entries within the grouping
-            integer groupingOrder = 0;  // Since grouping order is only implicitly defined in the LWC, we explicitly define it here
-            for (Object groupingEntry : (List<Object>)groupingObject.get('entries')) {
-                Map<String, Object> groupingEntryObject = (Map<String, Object>) groupingEntry;
-                // Define the new DBM_Report_Grouping_Entry__C based on values in the request and add it to the map based on the parent grouping's name
-                DBM_Report_Grouping_Entry__C newGroupingEntry = new DBM_Report_Grouping_Entry__C();
-                newGroupingEntry.Name = (String)groupingEntryObject.get('value');
-                String recordId = String.valueOf(groupingEntryObject.get('recordId'));
-                newGroupingEntry.Record_ID__c = recordId;
-                if (!String.isBlank(recordId) && recordId.startsWith(userObjectPrefix)) {
-                    newGroupingEntry.User__c = newGroupingEntry.Record_ID__c;
-                }
-                newGroupingEntry.Grouping_Order__c = groupingOrder;
-                groupingEntryMap.get(newGrouping.Name).add(newGroupingEntry);
-                groupingOrder++;
-            }
-        }
-        insert newGroupings;
+            // Define and insert the DBM_Report__c record with values from the request
+            DBM_Report__c newReport = new DBM_Report__c();
+            newReport.Id = (String)requestObject.get('id');
+            newReport.Name = (String)requestObject.get('reportName');
+            newReport.Metric_Label__c = (String)requestObject.get('metricLabel');
+            newReport.Metric_Type__c = (String)requestObject.get('metricType');
+            newReport.Report_Folder_name__c = (String)requestObject.get('folderDeveloperName');
+            // insert newReport;
+            upsert newReport;
 
-        // After the Grouping records have been inserted, we can go back through the Entry records and update the lookup field value
-        List<DBM_Report_Grouping_Entry__C> newGroupingEntries = new List<DBM_Report_Grouping_Entry__C>();
-        for (DBM_Report_Grouping__c grouping : newGroupings) {
-            for (DBM_Report_Grouping_Entry__C groupingEntry : groupingEntryMap.get(grouping.Name)) {
-                groupingEntry.Grouping__c = grouping.Id;
-                groupingEntry.Report__c = newReport.Id;
-                System.debug('new groupingEntry = '+ groupingEntry);
-                newGroupingEntries.add(groupingEntry);
-            }
-        }
-        insert newGroupingEntries;
-
-        // Instantiate the list of DBM_Data_Entry__c records
-        List<DBM_Data_Entry__c> newDataEntries = new List<DBM_Data_Entry__c>();
-        // Break the `data` property of the request object into a list of objects (each object being a row of numbers)
-        List<Object> dataRows = (List<Object>)requestObject.get('data');
-        // Loop through the rows
-        for (integer rowIndex=0; rowIndex<dataRows.size(); rowIndex++) {
-            // Break each row into a list of objects (each object being an individual numeric data entry value)
-            List<Object> cells = (List<Object>)dataRows[rowIndex];
-            // Loop through each cell in the row
-            for (integer colIndex=0; colIndex<cells.size(); colIndex++) {
-                // If the value of the Data Entry is blank, don't bother creating a record for it
-                if (String.isBlank(String.valueOf(cells[colIndex]))) {
+            // Define the list of new DBM_Report_Grouping__c records
+            List<DBM_Report_Grouping__c> newGroupings = new List<DBM_Report_Grouping__c>();
+            // Define a map of grouping names to the list of grouping entries, so that we can populate the lookup IDs later on
+            Map<String, List<DBM_Report_Grouping_Entry__C>> groupingEntryMap = new Map<String, List<DBM_Report_Grouping_Entry__C>>();
+            // Loop through the groupings
+            for (Object grouping : (List<Object>)requestObject.get('groupings')) {
+                Map<String, Object> groupingObject = (Map<String, Object>) grouping;
+                // If this grouping is disabled, skip it
+                if (Boolean.valueOf(groupingObject.get('isDisabled'))) {
                     continue;
                 }
-                // Define the new DBM_Data_Entry__c record
-                DBM_Data_Entry__c newDataEntry = new DBM_Data_Entry__c();
-                newDataEntry.Grouping_1__c = groupingEntryMap.get(newGroupings[0].Name)[rowIndex].Id;
-                if (newGroupings.size() == 2) {
-                    newDataEntry.Grouping_2__c = groupingEntryMap.get(newGroupings[1].Name)[colIndex].Id;
+                // Define the new DBM_Report_Grouping__c record based on values in the request and add it to both the list and the map
+                DBM_Report_Grouping__c newGrouping = new DBM_Report_Grouping__c();
+                newGrouping.Report__c = newReport.Id;
+                // newGrouping.Id = (String)groupingObject.get('id');
+                newGrouping.Name = (String)groupingObject.get('name');
+                newGrouping.Data_Source__c = (String)groupingObject.get('dataSource');
+                newGrouping.Object_Name__c = (String)groupingObject.get('objectName');
+                newGrouping.Field_Name__c = (String)groupingObject.get('fieldName');
+                newGrouping.Grouping_Number__c = (Integer)groupingObject.get('groupingNumber');
+                groupingEntryMap.put(newGrouping.Name, new List<DBM_Report_Grouping_Entry__C>());
+                newGroupings.add(newGrouping);
+
+                // Loop through each of the entries within the grouping
+                integer groupingOrder = 0;  // Since grouping order is only implicitly defined in the LWC, we explicitly define it here
+                for (Object groupingEntry : (List<Object>)groupingObject.get('entries')) {
+                    Map<String, Object> groupingEntryObject = (Map<String, Object>) groupingEntry;
+                    // Define the new DBM_Report_Grouping_Entry__C based on values in the request and add it to the map based on the parent grouping's name
+                    DBM_Report_Grouping_Entry__C newGroupingEntry = new DBM_Report_Grouping_Entry__C();
+                    // newGroupingEntry.Id = (String)groupingEntryObject.get('id');
+                    newGroupingEntry.Name = (String)groupingEntryObject.get('value');
+                    String recordId = String.valueOf(groupingEntryObject.get('recordId'));
+                    newGroupingEntry.Record_ID__c = recordId;
+                    if (!String.isBlank(recordId) && recordId.startsWith(userObjectPrefix)) {
+                        newGroupingEntry.User__c = newGroupingEntry.Record_ID__c;
+                    }
+                    newGroupingEntry.Grouping_Order__c = groupingOrder;
+                    groupingEntryMap.get(newGrouping.Name).add(newGroupingEntry);
+                    groupingOrder++;
                 }
-                System.debug('in row '+ rowIndex+ ', col '+ colIndex +', cell value = '+ cells[colIndex]);
-                newDataEntry.Value__c = Double.valueOf(cells[colIndex]);
-                newDataEntry.Report__c = newReport.Id;
-                newDataEntries.add(newDataEntry);
             }
+            insert newGroupings;
+            // upsert newGroupings;
+
+            // After the Grouping records have been inserted, we can go back through the Entry records and update the lookup field value
+            List<DBM_Report_Grouping_Entry__C> newGroupingEntries = new List<DBM_Report_Grouping_Entry__C>();
+            for (DBM_Report_Grouping__c grouping : newGroupings) {
+                for (DBM_Report_Grouping_Entry__C groupingEntry : groupingEntryMap.get(grouping.Name)) {
+                    groupingEntry.Grouping__c = grouping.Id;
+                    groupingEntry.Report__c = newReport.Id;
+                    System.debug('new groupingEntry = '+ groupingEntry);
+                    newGroupingEntries.add(groupingEntry);
+                }
+            }
+            insert newGroupingEntries;
+
+            // Instantiate the list of DBM_Data_Entry__c records
+            List<DBM_Data_Entry__c> newDataEntries = new List<DBM_Data_Entry__c>();
+            // Break the `data` property of the request object into a list of objects (each object being a row of numbers)
+            List<Object> dataRows = (List<Object>)requestObject.get('data');
+            // Loop through the rows
+            for (integer rowIndex=0; rowIndex<dataRows.size(); rowIndex++) {
+                // Break each row into a list of objects (each object being an individual numeric data entry value)
+                List<Object> cells = (List<Object>)dataRows[rowIndex];
+                // Loop through each cell in the row
+                for (integer colIndex=0; colIndex<cells.size(); colIndex++) {
+                    // If the value of the Data Entry is blank, don't bother creating a record for it
+                    if (String.isBlank(String.valueOf(cells[colIndex]))) {
+                        continue;
+                    }
+                    // Define the new DBM_Data_Entry__c record
+                    DBM_Data_Entry__c newDataEntry = new DBM_Data_Entry__c();
+                    newDataEntry.Grouping_1__c = groupingEntryMap.get(newGroupings[0].Name)[rowIndex].Id;
+                    if (newGroupings.size() == 2) {
+                        newDataEntry.Grouping_2__c = groupingEntryMap.get(newGroupings[1].Name)[colIndex].Id;
+                    }
+                    System.debug('in row '+ rowIndex+ ', col '+ colIndex +', cell value = '+ cells[colIndex]);
+                    newDataEntry.Value__c = Double.valueOf(cells[colIndex]);
+                    newDataEntry.Report__c = newReport.Id;
+                    newDataEntries.add(newDataEntry);
+                }
+            }
+            insert newDataEntries;
+            
+            returnMap.put('reportId', newReport.Id);
+            returnMap.put('isSuccess', true);
+            // returnString = newReport.Id;
+            // String responseString = newReport.Id;
+            // return responseString;
+        } catch (Exception e) {
+            returnMap.put('errorMessage', e.getMessage());
+            returnMap.put('isSuccess', false);
         }
-        insert newDataEntries;
-        
-        String responseString = newReport.Id;
-        return responseString;
+        // returnMap.put('message', returnString);
+        // returnMap.put('isSuccess', isSuccess);
+        return returnMap;
     }
 
-    /* CREATE REPORT METADATA TEST CODE */
     public static MetadataService.MetadataPort createService() {
         System.debug('in createService()');
         MetadataService.MetadataPort service = new MetadataService.MetadataPort();
@@ -217,7 +244,15 @@ public with sharing class DBM25Controller {
             MetadataService.MetadataPort service = createService();
             MetadataService.Report newReport = new MetadataService.Report();
 
-            DBM_Report__c reportDetailsRecord = [SELECT Name, Metric_Label__c, Metric_Type__c, Metric_type_enum__c, Report_Folder_Name__c, Number_of_Groupings__c FROM DBM_Report__c WHERE Id =: reportDetailsRecordId];
+            DBM_Report__c reportDetailsRecord = [SELECT Id, Name, Metric_Label__c, Metric_Type__c, Metric_type_enum__c, Number_of_Groupings__c, Report_ID__c, Report_Folder_Name__c FROM DBM_Report__c WHERE Id =: reportDetailsRecordId];
+            String existingReportDeveloperName;
+            // Report existingReport = [SELECT Id FROM Report WHERE Id =: reportDetailsRecord.Report_ID__c];
+            if (!String.isBlank(reportDetailsRecord.Report_ID__c)) {
+                List<Report> existingReports = [SELECT Id, DeveloperName FROM Report WHERE Id =: reportDetailsRecord.Report_ID__c];
+                if (existingReports.size() > 0) {
+                    existingReportDeveloperName = existingReports[0].DeveloperName;
+                }
+            }
             System.debug('reportDetailsRecord = '+ reportDetailsRecord);
 
             /* Do some metadata processing */
@@ -261,7 +296,7 @@ public with sharing class DBM25Controller {
             newReport.reportType = 'CustomEntityCustomEntity$'+ reportObjRes.getName() +'$'+ dataEntryObjRes.getName(); // data source, i.e. sobject(s)
             newReport.name = reportDetailsRecord.Name.left(apiNameMaxLength);
             newReport.folderName = reportDetailsRecord.Report_Folder_Name__c;
-            String developerName = 'DBM'+ Datetime.now().getTime();
+            String developerName = String.isBlank(existingReportDeveloperName) ? 'DBM'+ Datetime.now().getTime() : existingReportDeveloperName;
             newReport.fullName = reportDetailsRecord.Report_Folder_Name__c +'/'+ developerName;
             newReport.columns = columns;
             newReport.buckets = buckets;
@@ -275,7 +310,13 @@ public with sharing class DBM25Controller {
             System.debug('newReport = '+ newReport);
             System.debug('newReport.reportType = '+ newReport.reportType);
             // Create the report clone
-            MetadataService.SaveResult result = service.createMetadata(new MetadataService.Metadata[] { newReport })[0];
+            MetadataService.SaveResult result;
+            // if (existingReport == null) {
+            if (String.isBlank(reportDetailsRecord.Report_ID__c)) {
+                result = service.createMetadata(new MetadataService.Metadata[] { newReport })[0];
+            } else {
+                result = service.updateMetadata(new MetadataService.Metadata[] { newReport })[0];
+            }
             handleSaveResults(result);
             System.debug('final save result = '+ result);
             Report insertedReport = [SELECT Id FROM Report WHERE DeveloperName =: developerName];

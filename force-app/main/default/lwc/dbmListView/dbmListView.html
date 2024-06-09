@@ -1,13 +1,16 @@
 <template>
     <section>
-        <!-- <template lwc:if={showSpinner}>
+        <template lwc:if={showSpinner}>
             <lightning-spinner></lightning-spinner>
-        </template> -->
-        <template lwc:if={tableRows.length}>
-            <!-- <lightning-datatable key-field="Id" data={reportDetailRecords} columns={columns} onrowaction={handleRowAction} onsort={handleColumnSort} onrowselection={handleRowSelection} sorted-by={sortedBy} sorted-direction={sortDirection}></lightning-datatable> -->
+            Loading Dashboard Magic report datasets...
+        </template>
+        <!-- <template lwc:else> -->
+            <!-- <template lwc:if={tableRows.length}> -->
             <div class="tableActions slds-p-vertical_small slds-clearfix">
                 <div class="slds-float_left">
-                    <template for:each={rowActions} for:item="action">
+                    <lightning-button label="New Dataset" onclick={handleNewDatasetClick}
+                        class="slds-p-horizontal_xx-small"></lightning-button>
+                    <template for:each={updatedActions} for:item="action">
                         <lightning-button-icon icon-name={action.iconName} class="slds-p-horizontal_xxx-small"
                             disabled={action.isDisabled} tooltip={action.tooltip} alternative-text={action.title}
                             title={action.title} key={action.name} onclick={action.onclick}></lightning-button-icon>
@@ -29,8 +32,6 @@
                 <lightning-input type="search" placeholder="Type to filter list"
                     class="slds-p-horizontal_xx-small slds-float_right" variant="label-hidden"
                     onchange={handleSearchChange}></lightning-input>
-                <lightning-button label="New Dataset" onclick={handleNewDatasetClick}
-                    class="slds-p-horizontal_xx-small slds-float_right"></lightning-button>
                 <!-- </div> -->
             </div>
             <table class="slds-table slds-table_cell-buffer slds-table_bordered"
@@ -43,19 +44,21 @@
                         </th>
                         <template for:each={columns} for:item="col">
                             <th scope="col" key={col.fieldName}>
-                                <div class="slds-truncate" title={col.label}>
+                                <div class="slds-truncate slds-p-vertical_xxx-small" title={col.label}>
                                     {col.label}
                                 </div>
                             </th>
                         </template>
+                        <th style="width:3.25rem">
+                            <!-- Space for row action menu -->
+                        </th>
                     </tr>
                 </thead>
                 <tbody>
                     <template for:each={tableRows} for:item="row" for:index="rowIndex">
                         <template lwc:if={row.isHidden}></template>
                         <template lwc:else>
-                            <tr class="slds-hint-parent" key={row.Id} data-row-index={rowIndex}
-                                onclick={handleRowClick}>
+                            <tr class="slds-hint-parent" key={row.id}>
                                 <td class="slds-text-align_right slds-cell_action-mode" role="gridcell">
                                     <lightning-input type="checkbox" checked={row.isSelected}
                                         onchange={handleRowSelectChange} data-row-index={rowIndex}></lightning-input>
@@ -64,9 +67,11 @@
                                     <template lwc:if={field.isFirst}>
                                         <th data-label={field.label} scope="row" key={field.fieldName}>
                                             <div class="slds-truncate" title={field.value}>
-                                                <span class="slds-text-link" data-row-index={rowIndex}
+                                                <a href="#" data-row-index={rowIndex} data-row-id={row.id}
+                                                    onclick={handleRecordNameClick}>{field.value}</a>
+                                                <!-- <span class="slds-text-link" data-row-index={rowIndex}
                                                     data-row-id={row.id}
-                                                    onclick={handleRecordNameClick}>{field.value}</span>
+                                                    onclick={handleRecordNameClick}>{field.value}</span> -->
                                             </div>
                                         </th>
                                     </template>
@@ -85,15 +90,30 @@
                                         </td>
                                     </template>
                                 </template>
+                                <td class="rowActionMenu">
+                                    <lightning-button-menu icon-size="small" menu-alignment="auto" onselect={handleRowActionMenuSelect} data-row-index={rowIndex}>
+                                        <template for:each={rowActions} for:item="action">
+                                            <lightning-menu-item value={action.name} label={action.tooltip} key={action.name} prefix-icon-name={action.iconName}></lightning-menu-item>
+                                        </template>
+                                    </lightning-button-menu>
+                                </td>
                             </tr>
                         </template>
                     </template>
                 </tbody>
             </table>
+            <template lwc:if={allAreHidden}>
+                <p class="slds-p-around_small">No results match the search term.</p>
+            </template>
+            <template lwc:if={tableRows.length}></template>
+            <template lwc:else>
+                <c-dbm-illustration onnew={handleNewDatasetClick}></c-dbm-illustration>
+            </template>
 
-        </template>
+            <!-- </template>
         <template lwc:else>
             No report records exist yet
-        </template>
+        </template> -->
+        <!-- </template> -->
     </section>
 </template>

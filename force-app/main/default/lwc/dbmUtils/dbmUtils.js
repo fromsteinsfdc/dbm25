@@ -80,6 +80,12 @@ const CHART_COLOURS = [
     '#0d9dda'
 ];
 
+const KEYS = {
+    ESCAPE: 27,
+    BACKSPACE: 8,
+    DELETE: 46
+}
+
 const VALIDATEABLE_COMPONENTS = ['input', 'lightning-input', 'lightning-combobox', 'lightning-checkbox', 'lightning-dual-listbox', 'lightning-radio-group', 'lightning-slider', 'c-fsc_object-field-selector', 'c-fsc_combobox', 'c-fsc_lookup'];
 
 const defaultReportDetails = () => {
@@ -105,8 +111,6 @@ const defaultReportDetails = () => {
 const newGrouping = (index) => {
     let newGrouping = {
         dataSource: transformConstantObject(DATA_SOURCE_OPTIONS).default.value,
-        groupingNumber: (Number(index) + 1),
-        inputLabel: 'Enter Name for Grouping #' + (Number(index) + 1),
         entries: [],
         presetEntries: []
     };
@@ -119,7 +123,7 @@ const switchGroupings = (reportDetails) => {
     reportDetails.groupings[0] = JSON.parse(JSON.stringify(reportDetails.groupings[1]));
     reportDetails.groupings[1] = tempGrouping;
     let datasets = reportDetails.data[0].map(row => []);
-    console.log(`datasets = ${JSON.stringify(datasets)}`);
+    // console.log(`datasets = ${JSON.stringify(datasets)}`);
     reportDetails.data.forEach(row => {
         row.forEach((cell, colIndex) => {
             datasets[colIndex].push(cell);
@@ -156,4 +160,4 @@ const transformConstantObject = (constant) => {
     }
 }
 
-export { NAMESPACE, PREVIEW_PANE_SIZES, METRIC_TYPES, METRIC_NAMES, NUM_GROUPINGS_OPTIONS, DATA_SOURCE_OPTIONS, NAVIGATION, EVENTS, CHART_TYPES, CHART_COLOURS, VALIDATEABLE_COMPONENTS, defaultReportDetails, newGrouping, switchGroupings, validate, transformConstantObject };
+export { NAMESPACE, PREVIEW_PANE_SIZES, METRIC_TYPES, METRIC_NAMES, NUM_GROUPINGS_OPTIONS, DATA_SOURCE_OPTIONS, NAVIGATION, EVENTS, CHART_TYPES, CHART_COLOURS, VALIDATEABLE_COMPONENTS, KEYS, defaultReportDetails, newGrouping, switchGroupings, validate, transformConstantObject };

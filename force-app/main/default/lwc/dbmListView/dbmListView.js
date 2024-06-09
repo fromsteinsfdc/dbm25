@@ -14,53 +14,6 @@ const COLUMNS = [
     { label: 'Metric Type', fieldName: 'Metric_Type__c', type: 'text', sortable: true },
     { label: 'Number of Groupings', fieldName: 'Number_of_Groupings__c', type: 'number', sortable: true },
     { label: 'Last Modified Date', fieldName: 'LastModifiedDate', type: 'date', sortable: true },
-    /*
-    {
-        label: '', type: 'button-icon', hideLabel: true, fixedWidth: 40,
-        typeAttributes: {
-            name: 'openDataset',
-            iconName: 'utility:play',
-            alternativeText: 'Open Dataset Builder ',
-            title: 'Open Dataset Builder',
-        }
-    },
-    {
-        label: '', type: 'button-icon', fixedWidth: 40,
-        typeAttributes: {
-            name: 'clone',
-            iconName: 'utility:copy',
-            alternativeText: 'Clone report',
-            title: 'Clone report',
-        }
-    },
-    {
-        label: '', type: 'button-icon', fixedWidth: 40,
-        typeAttributes: {
-            name: 'copy',
-            iconName: 'utility:copy_to_clipboard',
-            alternativeText: 'Copy dataset source code',
-            title: 'Copy dataset source code',
-        }
-    },
-    {
-        label: '', type: 'button-icon', fixedWidth: 40,
-        typeAttributes: {
-            name: 'openReport',
-            iconName: 'utility:new_window',
-            alternativeText: 'Open report',
-            title: 'Open report',
-        }
-    },    
-    {
-        label: '', type: 'button-icon', hideLabel: true, fixedWidth: 40,
-        typeAttributes: {
-            name: 'preview',
-            iconName: 'utility:preview',
-            alternativeText: 'Preview chart',
-            title: 'Preview chart',
-        }
-    },
-    */
 ];
 
 const ACTION_TYPES = {
@@ -71,23 +24,6 @@ const ACTION_TYPES = {
 const DEFAULT_SORT_DIRECTION = 'asc';
 
 export default class DbmListView extends LightningElement {
-    /*
-    @wire(getReportDetailRecords)
-    wiredReportDetailRecords({ error, data }) {
-        if (error) {
-            console.log(`Error loading report detail records: ${JSON.stringify(error)}`);
-        }
-        if (data) {
-            console.log(`reportDetailRecords = ${JSON.stringify(data)}`);
-            this.showSpinner = false;
-            this.reportDetailRecords = data;
-            // this.tableRows = this.processRecordsIntoRows(data);
-        }
-    }
-    */
-
-    @api reportDetailRecords = [];
-
     @api
     get namespace() {
         return this._namespace;
@@ -105,59 +41,67 @@ export default class DbmListView extends LightningElement {
     }
     _namespace;
 
+    @api reportDetailRecords = [];
+    @api isLoaded = false;
+
+
     // @track tableRows = [];
     @track reportDetailRecords = [];
     @track selectedRowIndexes = [];
+    @track rowActions = [
+        { name: 'open', iconName: 'utility:open', isSingleRowAction: true, tooltip: 'Open in Dataset Builder', title: 'Open', onclick: (rowIndex) => this.openInDatasetBuilder(rowIndex) },
+        { name: 'clone', iconName: 'utility:copy', isSingleRowAction: true, tooltip: 'Clone dataset', title: 'Clone', onclick: (rowIndex) => this.cloneReport(rowIndex) },
+        { name: 'copy', iconName: 'utility:copy_to_clipboard', isSingleRowAction: true, tooltip: 'Copy dataset code to clipboard', title: 'Copy', onclick: (rowIndex) => this.copyToClipboard(rowIndex) },
+        { name: 'openReport', iconName: 'utility:new_window', isSingleRowAction: true, tooltip: 'Open report in Report Builder', title: 'Open Report', onclick: (rowIndex) => this.openReport(rowIndex) },
+        // { name: 'preview', iconName: 'utility:preview', isSingleRowAction: true, tooltip: 'Preview dataset in side panel', title: 'Preview' },
+        { name: 'delete', iconName: 'utility:delete', isSingleRowAction: false, tooltip: 'Delete selected dataset(s)', title: 'Delete', onclick: (rowIndex) => this.deleteReports(rowIndex) },
+    ];
 
-    showSpinner;
+    // showSpinner;
     columns = COLUMNS;
     sortDirection = DEFAULT_SORT_DIRECTION;
     sortedBy;
     numberOfSelectedRows = 0;
     searchTerm;
+    isPending = false;
 
     get tableRows() {
         return this.processRecordsIntoRows(this.reportDetailRecords);
+    }
+
+    get updatedActions() {
+        return this.rowActions.map(action => {
+            return {
+                ...action,
+                isDisabled: action.isSingleRowAction ? (this.selectedRowIndexes.length !== 1) : (this.selectedRowIndexes.length === 0)
+            }
+        })
     }
 
     get allRowsSelected() {
         return this.selectedRowIndexes.length === this.tableRows.length;
     }
 
-    // get disableSingleRowActions() {
-    //     return this.numberOfSelectedRows !== 1;
-    // }
+    get showSpinner() {
+        return !this.isLoaded || this.isPending;
+    }
 
-    // get disableMultiRowActions() {
-    //     return this.numberOfSelectedRows === 0;
-    // }
-
-    @track rowActions = [
-        { name: 'open', iconName: 'utility:open', isSingleRowAction: true, tooltip: 'Open in Dataset Builder', title: 'Open' },
-        { name: 'clone', iconName: 'utility:copy', isSingleRowAction: true, tooltip: 'Clone dataset', title: 'Clone' },
-        { name: 'copy', iconName: 'utility:copy_to_clipboard', isSingleRowAction: true, tooltip: 'Copy dataset code to clipboard', title: 'Copy', onclick: () => this.copyToClipboard() },
-        { name: 'openReport', iconName: 'utility:new_window', isSingleRowAction: true, tooltip: 'Open report in Report Builder', title: 'Open Report' },
-        { name: 'preview', iconName: 'utility:preview', isSingleRowAction: true, tooltip: 'Preview dataset in side panel', title: 'Preview' },
-        { name: 'delete', iconName: 'utility:delete', isSingleRowAction: false, tooltip: 'Delete selected dataset(s)', title: 'Delete', onclick: () => this.deleteReports() },
-    ];
-    
+    get allAreHidden() {
+        return this.tableRows.length && this.tableRows.every(row => row.isHidden);
+    }
 
     /* LIFECYCLE HOOKS */
     connectedCallback() {
-        // if (!this.reportDetailRecords)
-        // this.showSpinner = true;
-        // console.log(`reportDetailRecords = ${JSON.stringify(this.reportDetailRecords.data)}`);
     }
 
     /* ACTION FUNCTIONS */
     processRecordsIntoRows(records) {
-        // console.log(`in processRecordsIntoRows`);
-        // console.log(`in processRecordsIntoRows, records = ${JSON.stringify(records)}`);
-        let selectedRowCount = 0;
+        // let selectedRowCount = 0;
         let rows = records.map((record, rowIndex) => {
             let row = {
                 id: record.Id,
                 reportId: record[REPORT_REPORTID_FIELD.fieldApiName],
+                isSelected: this.selectedRowIndexes.includes(rowIndex),
                 fields: []
             };
             this.columns.forEach((col, colIndex) => {
@@ -177,7 +121,7 @@ export default class DbmListView extends LightningElement {
                         let groupingNames = groupings.map(grouping => grouping.Name);
                         // console.log(`groupingNames = ${JSON.stringify(groupingNames)}`);
                         row.fields[colIndex].value += ` (${groupings.map(grouping => grouping.Name).join(', ')})`;
-    
+
                     }
                 }
                 // Filter `isHidden` property based on `searchTerm`
@@ -192,68 +136,107 @@ export default class DbmListView extends LightningElement {
                 }
 
             });
-            if (this.selectedRowIndexes.includes(rowIndex)) {
-                row.isSelected = true;
-                selectedRowCount++;
-            }
-            // console.log(`row = ${JSON.stringify(row)}`);
             return row;
         });
-        this.rowActions.forEach(action => {
-            action.isDisabled = action.isSingleRowAction ? (selectedRowCount !== 1) : (selectedRowCount === 0);
-        })        
         return rows;
     }
 
-    copyToClipboard() {
-        console.log(`in copyToClipboard`);
-        if (this.selectedRowIndexes.length === 1) {
-            console.log(`copying to clipboard, index = ${this.selectedRowIndexes[0]}`);
-            const detail = {
-                sobjectRecord: this.reportDetailRecords[this.selectedRowIndexes[0]]
-            };            
-            // console.log(`detail = ${JSON.stringify(detail)}`);
-            this.dispatchEvent(new CustomEvent(EVENTS.COPY_TO_CLIPBOARD, { detail }))
-    
+    openInDatasetBuilder(rowIndex) {
+        if (!(rowIndex) >= 0 && this.selectedRowIndexes.length === 1) {
+            rowIndex = this.selectedRowIndexes[0];
         }
+        // if (this.selectedRowIndexes.length === 1) {
+        let reportDetailId = this.tableRows[rowIndex].id;
+        let reportDetailRecord = this.reportDetailRecords.find(record => record.Id === reportDetailId);
+        const detail = {
+            reportDetailRecord,
+            target: EVENTS.TARGETS.DATASET_BUILDER
+        }
+        this.dispatchEvent(new CustomEvent(EVENTS.NAVIGATE, { detail }));
+        // }
     }
 
-    async deleteReports() {
-        console.log(`in deleteReports`);
+    copyToClipboard(rowIndex) {
+        if (!(rowIndex) >= 0 && this.selectedRowIndexes.length === 1) {
+            rowIndex = this.selectedRowIndexes[0];
+        }
+        const detail = {
+            sobjectRecord: this.reportDetailRecords[rowIndex]
+        };
+        // console.log(`detail = ${JSON.stringify(detail)}`);
+        this.dispatchEvent(new CustomEvent(EVENTS.COPY_TO_CLIPBOARD, { detail }))
+
+        // }
+    }
+
+    openReport(rowIndex) {
+        if (!(rowIndex) >= 0 && this.selectedRowIndexes.length === 1) {
+            rowIndex = this.selectedRowIndexes[0];
+        }
+        // if (this.selectedRowIndexes.length === 1) {            
+        window.open('/' + this.tableRows[rowIndex].reportId, '_blank');
+        // }
+    }
+
+    cloneReport(rowIndex) {
+        if (!(rowIndex) >= 0 && this.selectedRowIndexes.length === 1) {
+            rowIndex = this.selectedRowIndexes[0];
+        }
+        let reportDetailId = this.tableRows[rowIndex].id;
+        let reportDetailRecord = this.reportDetailRecords.find(record => record.Id === reportDetailId);
+        let clonedRecord = {
+            ...reportDetailRecord,
+            Id: null,
+            [REPORT_REPORTID_FIELD.fieldApiName]: null,
+            Name: `Copy of ${reportDetailRecord.Name}`
+        }
+        
+        const detail = {
+            reportDetailRecord: clonedRecord,
+            target: EVENTS.TARGETS.DATASET_BUILDER
+        }
+        this.dispatchEvent(new CustomEvent(EVENTS.NAVIGATE, { detail }));
+    }
+
+    async deleteReports(rowIndex) {
         let recordIds = [], reportIds = [];
-        let length = this.selectedRowIndexes.length;
-        this.selectedRowIndexes.forEach(index => {
+        let indexesToDelete = (!(rowIndex >= 0)) ? this.selectedRowIndexes : [rowIndex];
+        let length = indexesToDelete.length;
+        indexesToDelete.forEach(index => {
             let selectedRow = this.tableRows[index];
             recordIds.push(selectedRow.id);
             reportIds.push(selectedRow.reportId);
         });
-        console.log(`got ${length} rows ready to delete`);
         let plural = length > 1 ? 's' : '';
         const confirmResult = await LightningConfirm.open({
-            message: `Are you sure you want to delete ${length} dataset${plural}? This will not delete the underlying reports, but those reports will no longer have any data to show.`,
+            message: `Are you sure you want to delete ${length} dataset${plural}? Due to technical limitations, this will not delete the associated report${plural}, but the report${plural} will no longer have any data to show.`,
             label: 'Confirm Delete',
-            theme: 'error',            
+            theme: 'error',
         });
         if (confirmResult) {
+            this.isPending = true;
+            let toast;
             deleteReports({ reportDetailRecordIds: recordIds, reportIds: reportIds })
                 .then(() => {
                     this.dispatchEvent(new CustomEvent(EVENTS.REFRESH_RECORDS));
-                    const toast = new ShowToastEvent({
+                    toast = new ShowToastEvent({
                         title: `Report${plural} Successfully Deleted`,
                         message: `${length} report${plural} successfully deleted`,
                         variant: 'success',
                     });
-                    this.dispatchEvent(toast);
                 })
                 .catch((errorMessage => {
                     console.log(`errorMessage = ${JSON.stringify(errorMessage)}`);
-                    const toast = new ShowToastEvent({
+                    toast = new ShowToastEvent({
                         title: 'Error Deleting Records',
                         message: `There was an error when trying to delete the report${plural}: ${errorMessage}`,
                         variant: 'error',
                     });
-                    this.dispatchEvent(toast);    
-                }));
+                }))
+                .finally(() => {
+                    this.dispatchEvent(toast);
+                    this.isPending = false;
+                });
         }
     }
 
@@ -277,33 +260,8 @@ export default class DbmListView extends LightningElement {
 
     }
 
-    handleRowClick(event) {
-        // console.log(`in handleRowClick`)
-        // const index = Number(event.currentTarget.dataset.rowIndex);
-        // console.log(`index = ${index}`);
-        // console.log(JSON.stringify(this.tableRows[index]));
-    }
-
     handleSearchChange(event) {
-        console.log(`in handleSearchChange`);
         this.searchTerm = event.target.value.toLowerCase();
-        return;
-        const searchTerm = event.target.value;
-        console.log(`searchTerm = ${searchTerm}`);
-        this.tableRows.forEach((row, index) => {
-            if (!searchTerm.trim()) {
-                row.isHidden = false;
-            } else {
-                let isHidden = true;
-                row.fields.forEach(field => {
-                    if (String(field.value).includes(searchTerm)) {
-                        console.log(`row ${index} is included because field ${field.fieldName$} value "${field.value}" contains "${searchTerm}"`);
-                        isHidden = false;
-                    }
-                });
-                row.isHidden = isHidden;
-            }
-        });
     }
 
     handleRowSelectChange(event) {
@@ -342,6 +300,14 @@ export default class DbmListView extends LightningElement {
             target: EVENTS.TARGETS.DATASET_BUILDER
         }
         this.dispatchEvent(new CustomEvent(EVENTS.NAVIGATE, { detail }));
+    }
+
+    handleRowActionMenuSelect(event) {
+        console.log(`handleRowActionMenuSelect: ${event.detail.value}, ${event.target.dataset.rowIndex}`);
+        const selectedAction = this.rowActions.find(action => action.name === event.detail.value);
+        if (selectedAction) {
+            selectedAction.onclick(event.target.dataset.rowIndex);
+        }
     }
 
     /* UTILITY FUNCTIONS */

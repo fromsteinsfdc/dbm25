@@ -7,16 +7,32 @@ const KEYS = {
 export default class DbmModal extends LightningElement {
 
     @api header;
+    @api cancelLabel = 'Cancel';
+    @api confirmLabel = 'Confirm';
     @api showModal = false;
     @api preventDefaultCancel = false;
+    @api name;
 
     /* ACTION FUNCTIONS */
+    // @api
+    // close() {
+    //     this.showModal = false;
+    // }
+
+    // @api
+    // open() {
+    //     this.showModal = true;
+    // }
+
     cancelModal() {    
         this.dispatchEvent(new CustomEvent('cancel'));
+        // if (!this.preventDefaultCancel) {
+        //     this.close();
+        // }
     }
 
-    saveModal() {
-        this.dispatchEvent()
+    confirmModal() {
+        this.dispatchEvent(new CustomEvent('confirm'));
     }
 
     /* EVENT HANDLERS */
@@ -30,7 +46,7 @@ export default class DbmModal extends LightningElement {
         this.cancelModal();
     }
 
-    handleSaveClick() {
-        this.dispatchEvent(new CustomEvent('save'));
+    handleConfirmClick() {
+        this.confirmModal();
     }
 }

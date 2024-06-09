@@ -1,8 +1,15 @@
 import { LightningElement, api, track, wire } from 'lwc';
 // import { getPicklistValues } from "lightning/uiObjectInfoApi";
-import { VALIDATEABLE_COMPONENTS, NUM_GROUPINGS_OPTIONS, DATA_SOURCE_OPTIONS, transformConstantObject } from 'c/dbmUtils';
-const KEYS = {
-    ESCAPE: 27
+import { VALIDATEABLE_COMPONENTS, NUM_GROUPINGS_OPTIONS, DATA_SOURCE_OPTIONS, KEYS, transformConstantObject } from 'c/dbmUtils';
+
+const IDENTIFIERS = {
+
+}
+const CLASSES = {
+    // SELECTED: 'slds-is-selected',
+    SELECTED_ENTRY: 'selectedEntry',
+    VISIBLE_INDICATOR: 'visible',
+    DRAGGING: 'dragging',
 }
 export default class DbmDatasetGroupings extends LightningElement {
 
@@ -31,24 +38,46 @@ export default class DbmDatasetGroupings extends LightningElement {
     get bulkAddTextareaElement() {
         return this.template.querySelector('.bulkAddTextarea');
     }
+
     showBulkAddModal = false;
-    modalRendered = false;
+    bulkAddModalRendered = false;
     currentOpenModalIndex;
+
+    // showReorderModal = false;
+    // @track entriesToReorder = [];
+    @track reorderAction;
+    // selectedGroupingIndex;
+    // selectedEntryIndex;
+    // newEntryIndex;
+
+    dragAction;
+    get dragElements() {
+        if (!this.dragAction) {
+            return null;
+        }
+        return {
+            indicator: this.template.querySelector(`.dragIndicator[data-grouping-index="${this.dragAction.groupingIndex}"`),
+            dragRow: this.template.querySelector(`.entryRow[data-grouping-index="${this.dragAction.groupingIndex}"][data-entry-index="${this.dragAction.originIndex}"]`)
+        }
+    }
 
     /* LIFECYCLE HOOKS */
     connectedCallback() {
+        window.addEventListener('dragend', this.handleDragEnd);
+        let initialReportDetails = JSON.stringify(this.reportDetails);
         this.reportDetails.groupings.forEach((grouping, groupingIndex) => {
-            if (grouping.presetEntries?.length) {
-                grouping.presetEntries.forEach(presetValue => {
-                    this.addEntry(groupingIndex, presetValue);
-                })
-                // grouping.entries = grouping.presetEntries.map(entry => this.newEntry(entry));
-                grouping.presetEntries = [];
+            if (!grouping.isDisabled) {
+                if (grouping.presetEntries?.length) {
+                    grouping.presetEntries.forEach(presetValue => {
+                        this.addEntry(groupingIndex, presetValue);
+                    })
+                    // grouping.entries = grouping.presetEntries.map(entry => this.newEntry(entry));
+                    grouping.presetEntries = [];
+                }
+                if (grouping.entries.length === 0) {
+                    this.addEntry(groupingIndex);
+                }
             }
-            if (grouping.entries.length === 0) {
-                this.addEntry(groupingIndex);
-            }
-            this.dispatchDetails();
             // if (!grouping.entries.some(entry => {
             //     return entry.value;
             // })) {
@@ -64,14 +93,21 @@ export default class DbmDatasetGroupings extends LightningElement {
             //     }
             //     this.dispatchDetails();
             // }
-        })
+        });
+        if (initialReportDetails !== JSON.stringify(this.reportDetails)) {
+            this.dispatchDetails();
+        }
+    }
+
+    disconnectedCallback() {
+        window.addEventListener('dragend', this.handleDragEnd);
     }
 
     renderedCallback() {
         // If the modal has just opened, focus on the textarea element
-        if (this.bulkAddTextareaElement && !this.modalRendered) {
+        if (this.bulkAddTextareaElement && !this.bulkAddModalRendered) {
             this.bulkAddTextareaElement.focus();
-            this.modalRendered = true;
+            this.bulkAddModalRendered = true;
         }
         if (this.cellToFocus && this.cellToFocusElement) {
             this.cellToFocusElement.focus();
@@ -91,7 +127,7 @@ export default class DbmDatasetGroupings extends LightningElement {
 
     closeBulkAddModal() {
         this.showBulkAddModal = false;
-        this.modalRendered = false;
+        this.bulkAddModalRendered = false;
         this.template.querySelector('.bulkAddEntriesButton').focus();
     }
 
@@ -129,6 +165,36 @@ export default class DbmDatasetGroupings extends LightningElement {
         }
     }
 
+    // moveEntry(originIndex, newIndex) {
+    moveEntry() {
+        let movingEntry = this.reorderAction.entries.splice(this.reorderAction.selectedEntryIndex, 1)[0];
+        this.reorderAction.entries.splice(this.reorderAction.newEntryIndex, 0, movingEntry);
+        this.reorderAction.selectedEntryIndex = this.reorderAction.newEntryIndex;
+        this.reorderAction = this.reorderAction;
+        // let movingEntry = this.entriesToReorder.splice(this.selectedEntryIndex, 1)[0];
+        // this.entriesToReorder.splice(this.newEntryIndex, 0, movingEntry);
+        // this.selectedEntryIndex = this.newEntryIndex;
+    }
+
+    reorderEntries(groupingIndex, originIndex, targetIndex) {
+        let entries = this.reportDetails.groupings[groupingIndex].entries;
+        let movingEntry = entries.splice(originIndex, 1)[0];
+        if (originIndex < targetIndex) {
+            targetIndex--;
+        }
+        entries.splice(targetIndex, 0, movingEntry);        
+        if (groupingIndex === 0) {
+            let movingRow = this.reportDetails.data.splice(originIndex, 1)[0];
+            this.reportDetails.data.splice(targetIndex, 0, movingRow);
+        } else if (groupingIndex === 1) {
+            this.reportDetails.data.forEach(row => {
+                let movingCell = row.splice(originIndex, 1)[0];
+                row.splice(targetIndex, 0, movingCell);
+            })
+        }        
+        this.dispatchDetails();
+    }
+
     /* EVENT HANDLERS */
     handleAddEntryClick(event) {
         let index = Number(event.target.dataset.index);
@@ -138,17 +204,10 @@ export default class DbmDatasetGroupings extends LightningElement {
     }
 
     handleEntryRecordChange(event) {
-        console.log(`in dbmGroupings handleEntryRecordChange`);
-
-        console.log(JSON.stringify(event.detail));
+        // console.log(`in dbmGroupings handleEntryRecordChange`);
         let eventData = this.getDataFromEvent(event);
         eventData.entry.recordId = event.detail.value;
-        eventData.entry.value = event.detail.selectedRecord.label;
-
-        // const groupingIndex = Number(event.target.dataset.groupingIndex);
-        // const entryIndex = Number(event.target.dataset.entryIndex);
-        // this.reportDetails.groupings[groupingIndex].entries[entryIndex].recordId = event.detail.value;
-        // this.reportDetails.groupings[groupingIndex].entries[entryIndex].value = event.detail.selectedRecord.label;
+        eventData.entry.value = event.detail.selectedRecord?.label;
         this.dispatchDetails();
     }
 
@@ -163,13 +222,8 @@ export default class DbmDatasetGroupings extends LightningElement {
 
     handleEntryDeleteClick(event) {
         let eventData = this.getDataFromEvent(event);
-        // eventData.grouping.entries.splice(eventData.entryIndex, 1);
         this.removeEntry(eventData.groupingIndex, eventData.entryIndex);
-        // const groupingIndex = Number(event.target.dataset.groupingIndex);
-        // const entryIndex = Number(event.target.dataset.entryIndex);
-        // this.reportDetails.groupings[groupingIndex].entries.splice(entryIndex, 1);
         if (eventData.grouping.entries.length === 0) {
-            // eventData.grouping.entries = [this.newEntry()];
             this.addEntry(eventData.groupingIndex);
         }
         this.dispatchDetails();
@@ -206,6 +260,55 @@ export default class DbmDatasetGroupings extends LightningElement {
         this.dispatchDetails();
     }
 
+    handleEntryDragStart(event) {
+        this.dragAction = {
+            groupingIndex: Number(event.target.dataset.groupingIndex),
+            originIndex: Number(event.target.dataset.entryIndex),
+        }
+        event.dataTransfer.setData("text/plain", JSON.stringify(this.dragAction));
+        this.dragElements.dragRow.classList.add(CLASSES.DRAGGING);
+    }
+
+    handleEntryDragOver(event) {
+        event.preventDefault();
+        event.stopPropagation();
+        let entryIndex = Number(event.currentTarget.dataset.entryIndex);
+        if (event.currentTarget.dataset.groupingIndex == this.dragAction.groupingIndex && entryIndex != this.dragAction.originIndex) {
+            // let mouseY = event.clientY;
+            let rect = event.currentTarget.getBoundingClientRect();
+            let indicatorEl = this.dragElements.indicator;
+            let offset = 0.25 * parseFloat(getComputedStyle(document.documentElement).fontSize);
+            let baselineY = this.template.querySelector('.entriesContainer').getBoundingClientRect().top;
+            if (event.clientY < rect.top + rect.height / 2) {
+                if (entryIndex !== this.dragAction.originIndex + 1) {
+                    this.dragAction.targetIndex = entryIndex;
+                    indicatorEl.style.top = `${rect.top - baselineY - offset - 1}px`;
+                }
+            } else {
+                if (entryIndex !== this.dragAction.originIndex - 1) {
+                    this.dragAction.targetIndex = entryIndex + 1;
+                    indicatorEl.style.top = `${rect.bottom - baselineY + offset - 1}px`;
+                }
+            }
+            indicatorEl.classList.add(CLASSES.VISIBLE_INDICATOR);
+        }
+    }
+
+    handleEntryDragLeave(event) {
+        this.dragElements.indicator.classList.remove(CLASSES.VISIBLE_INDICATOR);
+        this.dragAction.targetIndex = undefined;
+    }
+
+    handleDragEnd = () => {
+        this.dragElements.indicator.classList.remove(CLASSES.VISIBLE_INDICATOR);
+        this.dragElements.dragRow.classList.remove(CLASSES.DRAGGING);
+        if (this.dragAction.targetIndex >= 0) {
+            this.reorderEntries(this.dragAction.groupingIndex, this.dragAction.originIndex, this.dragAction.targetIndex);            
+        }
+    }
+
+
+
     /* UTILITY FUNCTIONS */
     getDataFromEvent(event) {
         const groupingIndex = Number(event.target.dataset.groupingIndex);
@@ -221,7 +324,6 @@ export default class DbmDatasetGroupings extends LightningElement {
             grouping,
             entry
         };
-        // console.log(`returning data from getDataFromEvent: ${JSON.stringify(data)}`);
         return data;
 
     }
@@ -247,4 +349,98 @@ export default class DbmDatasetGroupings extends LightningElement {
             element.focus();
         }
     }
+
+    /* Dead code from when I thought we were going to do an up/down reordering of entries rather than drag and drop */
+    /*
+    handleReorderClick(event) {
+        let groupingIndex = Number(event.target.dataset.index);
+        this.reorderAction = {
+            groupingIndex,
+            entries: [...this.reportDetails.groupings[groupingIndex].entries]
+        }
+        // this.selectedGroupingIndex = Number(event.target.dataset.index);
+        // this.entriesToReorder = [...this.reportDetails.groupings[this.selectedGroupingIndex].entries];
+        // this.showReorderModal = true;
+    }
+
+    handleReorderModalCancel() {
+        this.reorderAction = null;
+        // this.showReorderModal = false;
+        // this.selectedGroupingIndex = null;
+        // this.selectedEntryIndex = null;
+        // this.entriesToReorder = [];
+    }
+
+    handleReorderModalConfirm() {
+        // this.reportDetails.groupings[this.selectedGroupingIndex].entries = [...this.entriesToReorder];
+        this.reportDetails.groupings[this.reorderAction.groupingIndex].entries = [...this.reorderAction.entries];
+        if (this.reorderAction.groupingIndex === 0) {
+            console.log(`starting data = ${this.reportDetails.data}`);
+            let movingRow = this.reportDetails.data.splice(this.reorderAction.originalEntryIndex, 1)[0];
+            console.log(`in process data = ${this.reportDetails.data}`);
+            this.reportDetails.data.splice(this.reorderAction.newEntryIndex, 0, movingRow);
+            console.log(`finished data = ${this.reportDetails.data}`);
+            // let movingEntry = this.entriesToReorder.splice(originIndex, 1)[0];
+            // this.entriesToReorder.splice(newIndex, 0, movingEntry);
+            // this.selectedEntryIndex = newIndex;
+
+        }
+        this.reorderAction = null;
+        // this.showReorderModal = false;
+        // this.selectedGroupingIndex = null;
+        // this.selectedEntryIndex = null;
+        // this.entriesToReorder = [];
+        this.dispatchDetails();
+    }
+
+    handleReorderEntryClick(event) {
+        this.reorderAction = {
+            ...this.reorderAction,
+            originalEntryIndex: Number(event.currentTarget.dataset.index),
+            selectedEntryIndex: Number(event.currentTarget.dataset.index),
+        };
+        let entryEls = this.template.querySelectorAll('.entryToReorder');
+        [...entryEls].forEach((el, index) => {
+            if (index === this.reorderAction.selectedEntryIndex) {
+                el.classList.add(CLASSES.SELECTED_ENTRY);
+                el.setAttribute('aria-selected', 'true');
+            } else {
+                el.classList.remove(CLASSES.SELECTED_ENTRY);
+                el.setAttribute('aria-selected', 'false');
+            }
+        });
+    }
+
+    handleMoveEntryToTopClick() {
+        if (this.reorderAction.selectedEntryIndex > 0) {
+            this.reorderAction.newEntryIndex = 0;
+            this.moveEntry();
+            // this.moveEntry(this.selectedEntryIndex, 0);
+        }
+    }
+
+    handleMoveEntryUpClick() {
+        if (this.reorderAction.selectedEntryIndex > 0) {
+            this.reorderAction.newEntryIndex = this.reorderAction.selectedEntryIndex - 1;
+            this.moveEntry();
+            // this.moveEntry(this.selectedEntryIndex, this.selectedEntryIndex - 1);
+        }
+    }
+
+    handleMoveEntryDownClick() {
+        if (this.reorderAction.selectedEntryIndex < this.reorderAction.entries.length - 1) {
+            this.reorderAction.newEntryIndex = this.reorderAction.selectedEntryIndex + 1;
+            this.moveEntry();
+            // this.moveEntry(this.selectedEntryIndex, this.selectedEntryIndex + 1);
+        }
+    }
+
+    handleMoveEntryToBottomClick() {
+        if (this.reorderAction.selectedEntryIndex < this.reorderAction.entries.length - 1) {
+            this.reorderAction.newEntryIndex = this.reorderAction.entries.length - 1;
+            this.moveEntry();
+            // this.moveEntry(this.selectedEntryIndex, this.entriesToReorder.length - 1);
+        }
+    }
+    */
 }

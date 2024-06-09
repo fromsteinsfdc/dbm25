@@ -73,9 +73,9 @@ export default class DbmContainer extends LightningElement {
         }
     }
 
-    get showSpinner() {
-        return !this.reportDetailRecordsLoaded;
-    }
+    // get showSpinner() {
+    //     return !this.reportDetailRecordsLoaded;
+    // }
 
     /* LIFECYCLE HOOKS */
     connectedCallback() {
@@ -102,7 +102,7 @@ export default class DbmContainer extends LightningElement {
 
     /* EVENT HANDLERS */
     handleReportDetailChange(event) {
-        console.log(`in dbmContainer, reportDetails: ${JSON.stringify(event.detail)}`);
+        // console.log(`in dbmContainer, reportDetails: ${JSON.stringify(event.detail)}`);
     }
 
     handleNewDatasetClick() {
@@ -127,7 +127,7 @@ export default class DbmContainer extends LightningElement {
         let reportDetails = defaultReportDetails();
         if (sobjectData) {
             // Populate Report Details properties
-            reportDetails.reportDetailsRecordId = sobjectData.Id;
+            reportDetails.id = sobjectData.Id;
             reportDetails.reportName = sobjectData[REPORT_NAME_FIELD.fieldApiName];
             let metricLabel = sobjectData[REPORT_METRICLABEL_FIELD.fieldApiName];
             let standardLabel = Object.values(METRIC_NAMES).find(metricName => metricName.label === metricLabel);

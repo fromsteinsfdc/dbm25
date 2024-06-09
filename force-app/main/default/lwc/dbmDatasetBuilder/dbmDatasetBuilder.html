@@ -1,27 +1,58 @@
 <template>
+    <template lwc:if={showSpinner}>
+        <lightning-spinner></lightning-spinner>
+    </template>
     <div class="builderContainer slds-grid slds-grid_vertical">
-        <template lwc:if={showSpinner}>
-            <lightning-spinner></lightning-spinner>
-        </template>
         <!-- {reportDetailsString} -->
-        <div class="builderHeader slds-grid slds-grid_vertical-align-center slds-p-vertical_x-small slds-border_bottom">
-            <div class="builderActions slds-p-right_small slds-border_right">
-                <lightning-button-icon icon-name="utility:back" variant="brand" onclick={handleBackToListViewClick}></lightning-button-icon>
-                <lightning-button-icon icon-name="utility:copy_to_clipboard" onclick={handleCopyToClipboardClick}></lightning-button-icon>
-                <lightning-button-icon icon-name="utility:undo"></lightning-button-icon>
-                <lightning-button-icon icon-name="utility:redo"></lightning-button-icon>
+        <!-- preview pane width: {previewPaneWidth} / content: {contentPaneStyle} -->
+        <!-- {changeLogIndex} / {changeLog.length}<br>
+        {changeLogString} -->
+        <div class="builderHeader slds-grid_vertical-align-center slds-p-vertical_x-small slds-border_bottom slds-p-horizontal_none slds-m-horizontal_none">
+            <div class="builderActions slds-p-bottom_small slds-clearfix slds-p-horizontal_none slds-m-horizontal_none">
+                <div class="leftActions slds-float_left">
+                    <lightning-button-icon icon-name="utility:back" variant="brand" onclick={handleBackToListViewClick}
+                        class="slds-p-right_xxx-small" tooltip="Back to List View" title="Back"
+                        alternative-text="Back to List View"></lightning-button-icon>
+                    <lightning-button-group class="slds-p-horizontal_xxx-small">
+                        <lightning-button-icon icon-name="utility:copy_to_clipboard" tooltip="Copy Dataset Code"
+                            title="Copy" alternative-text="Copy Dataset Code"
+                            onclick={handleCopyToClipboardClick}></lightning-button-icon>
+                        <lightning-button-icon icon-name="utility:insert_tag_field" tooltip="Import Dataset Code"
+                            title="Import" alternative-text="Import Dataset Code"
+                            onclick={handleImportClick}></lightning-button-icon>
+                    </lightning-button-group>
+                    <lightning-button-group class="slds-p-horizontal_xxx-small slds-m-around_none">
+                        <lightning-button-icon icon-name="utility:undo" tooltip="Undo Change" title="Undo"
+                            alternative-text="Undo" onclick={handleUndoClick}
+                            disabled={undoButtonDisabled}></lightning-button-icon>
+                        <lightning-button-icon icon-name="utility:redo" tooltip="Redo Change" title="Redo"
+                            alternative-text="Redo" onclick={handleRedoClick}
+                            disabled={redoButtonDisabled}></lightning-button-icon>
+                    </lightning-button-group>
+                    <lightning-button-icon icon-name="utility:new_window" class="slds-p-horizontal_xxx-small" disabled></lightning-button-icon>
+                </div>
+                <div class="rightActions slds-float_right">
+                    <lightning-button label="Save As" class="slds-p-horizontal_xxx-small" onclick={handleSaveAsButtonClick} disabled={saveAsButtonDisabled}></lightning-button>
+                    <lightning-button label="Save" variant="brand" class="slds-p-horizontal_xxx-small" onclick={handleSaveButtonClick} disabled={saveButtonDisabled}></lightning-button>
+                    <!-- <template lwc:if={reportDetails.reportId}>
+                        <lightning-button icon-name="utility:new_window" label="Open Report" class="slds-p-left_xxx-small"></lightning-button>
+                    </template>
+                    <template lwc:else>
+                        <lightning-button label="Generate Report" variant="success" class="slds-p-left_xxx-small"></lightning-button>
+                    </template> -->
+                </div>
             </div>
-            <div class="builderNav slds-col slds-grid slds-grid_vertical-align-center">
-                <lightning-button label="Back" onclick={handleBackButtonClick}
-                    disabled={backButtonIsDisabled}></lightning-button>
+            <div class="builderNav slds-grid slds-grid_vertical-align-center">
+                <lightning-button label="Previous" onclick={handleBackButtonClick}
+                    disabled={backButtonDisabled}></lightning-button>
                 <c-stage-path stages={builderSteps} current-stage-index={currentStepIndex}
                     onstageclick={handleStepClick} class="slds-col slds-p-horizontal_x-small"></c-stage-path>
                 <lightning-button label={nextButton.label} variant={nextButton.variant} disabled={nextButton.isDisabled}
                     onclick={handleNextButtonClick}></lightning-button>
             </div>
         </div>
-        <div class="builderBody slds-col slds-grid slds-gutters">
-            <div class="contentPane slds-col" onmouseup={handleContentPaneMouseUp}>
+        <div class="builderBody slds-grid slds-gutters slds-p-around_x-small">
+            <div class="contentPane" style={contentPaneStyle} onmouseup={handleContentPaneMouseUp}>
                 <template lwc:if={currentStepIs.details}>
                     <c-dbm-dataset-details report-details={reportDetails}
                         onreportdetailchange={handleReportDetailChange}></c-dbm-dataset-details>
@@ -45,8 +76,11 @@
                         <div class="slds-align_absolute-center slds-p-around_small">
                             <lightning-button label="Back to List" onclick={handleBackToListViewClick}
                                 class="slds-m-around_xx-small"></lightning-button>
-                            <a class="slds-button slds-button_outline-brand slds-m-around_xx-small" href={reportLink}
-                                target="_blank">Open Report</a>
+                            <a href={reportLink} target="_blank">
+                                <lightning-button icon-name="utility:new_window"
+                                    label="Open Report"></lightning-button></a>
+                            <!-- <a class="slds-button slds-button_neutral slds-m-around_xx-small" href={reportLink}
+                                target="_blank">Open Report</a> -->
                             <lightning-button label="Create Another Report" variant="brand" onclick={resetBuilder}
                                 class="slds-m-around_xx-small"></lightning-button>
                         </div>
@@ -72,7 +106,7 @@
 
     <template lwc:if={showSubmitModal}>
         <c-dbm-modal header="Save and Generate Report" oncancel={handleSubmitModalCancelClick}>
-            <div slot="modalContent">
+            <div>
                 <p>Clicking the Confirm button below will save the dataset you've created as DBM records, as well as
                     generate a report to be used for dashboards and charts. Do you want to proceed?</p>
             </div>
@@ -88,6 +122,12 @@
                     </div>
                 </template>
             </div>
+        </c-dbm-modal>
+    </template>
+
+    <template lwc:if={showImportModal}>
+        <c-dbm-modal header="Import Report Details" oncancel={closeImportModal} onconfirm={importReportDetails}>
+            <lightning-textarea class="importTextarea" label="Paste Report Details JSON"></lightning-textarea>
         </c-dbm-modal>
     </template>
 </template>

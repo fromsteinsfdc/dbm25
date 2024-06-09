@@ -5,17 +5,27 @@
             <template lwc:else>
                 <div class={grouping.classString} key={grouping.groupingName}>
                     <h2 class="slds-text-heading_small slds-p-vertical_small">{grouping.name}</h2>
-                    <lightning-button-group>
-                        <lightning-button-icon icon-name="utility:add" tooltip="Add Entry" title="Add Entry"
+                    <lightning-button-group class="slds-p-bottom_small">
+                        <lightning-button-icon icon-name="utility:add" tooltip="Add Entry" title="Add"
                             onclick={handleAddEntryClick} data-index={groupingIndex}></lightning-button-icon>
-                        <lightning-button-icon icon-name="utility:justify_text" tooltip="Bulk Add Entries"
-                            title="Bulk Add Entries" class="bulkAddEntriesButton" onclick={handleBulkAddClick}
-                            data-index={groupingIndex}></lightning-button-icon>
+                        <!-- <lightning-button-icon icon-name="utility:sort" tooltip="Reorder Entries" title="Reorder"
+                            alternative-text="Reorder Entries" onclick={handleReorderClick}
+                            data-index={groupingIndex}></lightning-button-icon> -->
+                        <!-- Lazy way of only showing the Bulk Add button if the data source is a text type -->
+                        <template lwc:if={grouping.dataSourceIs.sobject}></template>
+                        <template lwc:elseif={grouping.dataSourceIs.user}></template>
+                        <template lwc:else>
+                            <lightning-button-icon icon-name="utility:justify_text" tooltip="Bulk Add Entries"
+                                title="Bulk Add" class="bulkAddEntriesButton" onclick={handleBulkAddClick}
+                                data-index={groupingIndex}></lightning-button-icon>
+                        </template>
                     </lightning-button-group>
-                    <div class="slds-grid slds-wrap entriesContainer">
+                    <div class="entriesContainer slds-grid slds-wrap slds-is-relative">
+                        <div class="dragIndicator" data-grouping-index={groupingIndex}></div>
                         <template for:each={grouping.entries} for:item="entry" for:index="entryIndex">
-                            <div class="entryRow slds-p-top_x-small slds-col slds-size_1-of-1 slds-grid slds-m-horizontal_none slds-p-horizontal_none"
-                                key={entry.index}>
+                            <div class="entryRow slds-m-vertical_xx-small slds-col slds-size_1-of-1 slds-grid slds-m-horizontal_none slds-p-horizontal_none"
+                                key={entry.index} data-entry-index={entryIndex} data-grouping-index={groupingIndex}
+                                ondragover={handleEntryDragOver} ondragleave={handleEntryDragLeave}>
                                 <div class="entryInput slds-col slds-p-left_none">
                                     <template lwc:if={grouping.dataSourceIs.sobject}>
                                         <c-fsc_lookup class="inputElement" object-name={grouping.objectName} label=""
@@ -40,6 +50,9 @@
                                     <lightning-button-icon icon-name="utility:delete"
                                         data-grouping-index={groupingIndex} data-entry-index={entryIndex}
                                         onclick={handleEntryDeleteClick}></lightning-button-icon>
+                                    <lightning-icon icon-name="utility:drag_and_drop" ondragstart={handleEntryDragStart}
+                                        draggable="true" data-entry-index={entryIndex}
+                                        data-grouping-index={groupingIndex} class="dragHandle slds-p-left_xx-small"></lightning-icon>
                                 </div>
                             </div>
                         </template>
@@ -73,5 +86,55 @@
             </div>
         </section>
         <div class="slds-backdrop slds-backdrop_open" role="presentation"></div>
+    </template>
+
+    <template lwc:if={reorderAction}>
+        <c-dbm-modal data-modal-name="randomize" header="Reorder Groupings" oncancel={handleReorderModalCancel}
+            onconfirm={handleReorderModalConfirm}>
+            <!--             
+            <div class="slds-form-element" role="group" aria-labelledby="picklist-group-label">
+                <span id="picklist-group-label" class="slds-form-element__label slds-form-element__legend">Select
+                    Options</span>
+                <div class="slds-form-element__control">
+                    <div class="slds-dueling-list"> -->
+
+            <div class="slds-dueling-list slds-grid slds-grid_align-center slds-grid_vertical-align-center">
+                <div class="slds-dueling-list__column">
+                    <span class="slds-form-element__label">Second Category</span>
+                    <div class="slds-dueling-list__options">
+                        <ul aria-describedby="option-drag-label" class="slds-listbox slds-listbox_vertical"
+                            role="listbox">
+                            <!-- <template for:each={entriesToReorder} for:item="entry" for:index="entryIndex"> -->
+                            <template for:each={reorderAction.entries} for:item="entry" for:index="entryIndex">
+                                <li role="presentation" class="slds-listbox__item" key={entry.value}>
+                                    <div class="entryToReorder slds-listbox__option slds-listbox__option_plain slds-media slds-media_small slds-media_inline"
+                                        aria-selected="false" role="option" tabindex="0" data-index={entryIndex}
+                                        onclick={handleReorderEntryClick}>
+                                        <span class="slds-media__body">
+                                            <span class="slds-truncate" title={entry.value}>{entry.value}</span>
+                                        </span>
+                                    </div>
+                                </li>
+                            </template>
+                        </ul>
+                    </div>
+                </div>
+                <div class="slds-grid slds-grid_vertical slds-m-left_medium">
+                    <lightning-button-icon icon-name="utility:arrow_top" class="slds-m-vertical_xx-small"
+                        title="Move to top" alternative-text="Move to top"
+                        onclick={handleMoveEntryToTopClick}></lightning-button-icon>
+                    <lightning-button-icon icon-name="utility:up" class="slds-m-vertical_xx-small" title="Move up"
+                        alternative-text="Move up" onclick={handleMoveEntryUpClick}></lightning-button-icon>
+                    <lightning-button-icon icon-name="utility:down" class="slds-m-vertical_xx-small" title="Move down"
+                        alternative-text="Move to down" onclick={handleMoveEntryDownClick}></lightning-button-icon>
+                    <lightning-button-icon icon-name="utility:arrow_bottom" class="slds-m-vertical_xx-small"
+                        title="Move to bottom" alternative-text="Move to bottom"
+                        onclick={handleMoveEntryToBottomClick}></lightning-button-icon>
+                </div>
+            </div>
+            <!-- </div>
+                </div>
+            </div> -->
+        </c-dbm-modal>
     </template>
 </template>

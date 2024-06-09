@@ -5,7 +5,13 @@
     --selected-text-color: white;    
 }
 
+.dataContainer {
+    position: relative;
+    max-width: 100% !important;
+}
+
 .tableContainer {
+    max-width: 100%;
     overflow-x: scroll;
 }
 

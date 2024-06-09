@@ -1,5 +1,8 @@
 <template>
-    <div class="fullPage">
+    <template lwc:if={showSpinner}>
+        <lightning-spinner></lightning-spinner>
+    </template>
+    <div class="fullPage">        
         <div class="appContainer slds-card slds-grid slds-grid_vertical">
             <div class="appHeader">
                 <div class="slds-page-header">
@@ -26,8 +29,8 @@
                             <div class="slds-page-header__controls">
                                 <div class="slds-page-header__control">
                                     <!-- <lightning-button label="New Dataset" onclick={handleNewDatasetClick} class="slds-p-horizontal_xx-small"></lightning-button> -->
-                                    <lightning-button-icon icon-name="utility:help_center" size="large" variant="bare" class="slds-p-horizontal_xx-small"></lightning-button-icon>
-                                    <lightning-button-icon icon-name="utility:settings" size="large" variant="bare" class="slds-p-horizontal_xx-small"></lightning-button-icon>
+                                    <lightning-button-icon icon-name="utility:help_center" size="large" variant="bare" class="slds-p-horizontal_xx-small" tooltip="Help" title="Help" alternative-text="Help"></lightning-button-icon>
+                                    <lightning-button-icon icon-name="utility:settings" size="large" variant="bare" class="slds-p-horizontal_xx-small" tooltip="Settings" title="Help" alternative-text="Settings"></lightning-button-icon>
                                 </div>
                             </div>
                         </div>
@@ -85,9 +88,9 @@
                         </nav>
                     </div>
                 </div> -->
-                <template lwc:if={showSpinner}>
+                <!-- <template lwc:if={showSpinner}>
                     <lightning-spinner></lightning-spinner>
-                </template>        
+                </template>         -->
                 <div class="activePanel slds-col slds-p-around_xxx-small">
                     <template lwc:if={activePanelIs.listView}>
                         <div class="listViewContainer">
@@ -96,8 +99,8 @@
                     </template>
                     <template lwc:if={activePanelIs.datasetBuilder}>
                         <div class="datasetBuilderContainer">
-                            <c-dbm-dataset-builder namespace={namespace.data} report-details={reportDetails} is-loaded={reportDetailRecordsLoaded} 
-                                onreportdetailchange={handleReportDetailChange} onnavigate={handleNavigation} oncopy={handleCopyToClipboard}></c-dbm-dataset-builder>
+                            <c-dbm-dataset-builder namespace={namespace.data} report-details={reportDetails}
+                                onreportdetailchange={handleReportDetailChange} onnavigate={handleNavigation} oncopy={handleCopyToClipboard} onrefreshrecords={handleRefreshRecordsList}></c-dbm-dataset-builder>
                         </div>
                     </template>
                 </div>

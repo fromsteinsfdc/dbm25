@@ -1,5 +1,6 @@
 .builderContainer {
     height: 100%;
+    max-width: 100%;
     position: relative;
 }
 
@@ -8,11 +9,17 @@
     background-color: white;
     top: 0;
     z-index: 999;
+    width: 100%;
     /* margin: 1em 0; */
 }
 
+.builderBody {
+    max-width: 100% !important;
+    position: relative;
+}
+
 .contentPane {
-    overflow-x: scroll;
+    /* overflow-x: scroll; */
 }
 
 .contentPane, .previewPane {
@@ -34,4 +41,8 @@
     top: 100px;
     left: -0.1em;
     /* left: 25px; */
+}
+
+.importTextarea {
+    --slds-c-textarea-sizing-min-height: 20em;
 }

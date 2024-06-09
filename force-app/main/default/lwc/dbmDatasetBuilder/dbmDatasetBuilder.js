@@ -1,19 +1,26 @@
-// TODO: don't include blank cells when not checked (and validate to ensure at least 1 is populated)
-// TODO: disable bulk add button for non-text options
-// TODO: build list view
 // TODO: make content pane components auto-focus on first element
-// TODO: set up timeout for error if PE never returns
-// TODO: add redo/undo functionality
+// TODO: fix preview pane sizing
+// TODO: add email notifications
+// TODO: add Settings
+// TODO: add Help
 // TODO: add re-ordering
 // TODO: percent needs to be divided by 100
+// TODO: finish post-save behaviour
 // TODO (on hold): Add users to the report details object so images can be shown on screen
 // TODO (on hold): add option to display text options as links
+// TODO (complete): build list view
+// TODO (complete): set up timeout for error if PE never returns
+// TODO (complete): disable bulk add button for non-text options
+// TODO (complete): don't include blank cells when not checked (and validate to ensure at least 1 is populated)
+// TODO (complete): add redo/undo functionality
 
 
 import { LightningElement, track, api, wire } from 'lwc';
 import { subscribe, unsubscribe, onError, setDebugFlag, isEmpEnabled, } from 'lightning/empApi';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
+import LightningConfirm from 'lightning/confirm';
 import LightningAlert from 'lightning/alert';
+import LightningPrompt from 'lightning/prompt';
 import { EVENTS, METRIC_NAMES, PREVIEW_PANE_SIZES, defaultReportDetails, transformConstantObject } from "c/dbmUtils";
 import getPackageNamespace from '@salesforce/apex/DBM25Controller.getPackageNamespace';
 import saveReportDetails from '@salesforce/apex/DBM25Controller.saveReportDetails';
@@ -36,6 +43,7 @@ const PLATFORM_EVENT = {
 }
 
 const ERROR_WAIT = 15000;
+const DEBOUNCE_WAIT = 50;
 
 export default class DbmDatasetBuilder extends LightningElement {
 
@@ -56,6 +64,7 @@ export default class DbmDatasetBuilder extends LightningElement {
     // @api reportDetails;
     @api changeLog = [];
     @api changeLogIndex = 0;
+    timer;
 
     @track reportFolders = [];
     subscription;   // Used for receiving Platform Event
@@ -64,7 +73,10 @@ export default class DbmDatasetBuilder extends LightningElement {
     previewPaneIndex = 1;
     metricNames = transformConstantObject(METRIC_NAMES);
     // showSubmitModal = false;
-    @track showSpinner = false;
+    showImportModal = false;
+    showSpinner = false;
+    defaultReportDetails = { ...this.processReportDetails(defaultReportDetails()) };
+    initialReportDetails;
 
     showConfirm = false;
     saveSubmmitted = false;
@@ -91,9 +103,14 @@ export default class DbmDatasetBuilder extends LightningElement {
             [this.currentStep.value]: true
         }
     }
-    get isFinalStep() {
-        return this.currentStepIndex === this.builderSteps.length - 1;
+    // get isFinalStep() {
+    //     return this.currentStepIndex === this.builderSteps.length;
+    // }
+
+    get currentBuilderStepComponent() {
+        return this.template.querySelector('.contentPane *');
     }
+
 
     get reportDetailsString() {
         return JSON.stringify(this.reportDetails);
@@ -108,14 +125,41 @@ export default class DbmDatasetBuilder extends LightningElement {
 
     get nextButton() {
         return {
-            label: this.showConfirm ? 'Confirm' : (this.isFinalStep ? 'Submit' : 'Next'),
-            variant: this.showConfirm ? 'success' : (this.isFinalStep ? 'brand' : 'neutral'),
-            isDisabled: this.saveSubmmitted
+            label: 'Next',
+            isDisabled: this.currentStepIndex === this.builderSteps.length - 1,
+            // label: this.showConfirm ? 'Confirm' : (this.isFinalStep ? 'Submit' : 'Next'),
+            // variant: this.showConfirm ? 'success' : (this.isFinalStep ? 'brand' : 'neutral'),
+            // isDisabled: this.saveSubmmitted
         }
     }
 
-    get backButtonIsDisabled() {
-        return this.currentStepIndex == 0 || this.showSpinner || this.showConfirm;
+    get backButtonDisabled() {
+        return this.currentStepIndex === 0 || this.showSpinner || this.showConfirm;
+    }
+
+    get undoButtonDisabled() {
+        return this.changeLogIndex === 0;
+    }
+
+    get redoButtonDisabled() {
+        return this.changeLogIndex === this.changeLog.length - 1;
+    }
+
+    get isChanged() {
+        return JSON.stringify(this.reportDetails) !== JSON.stringify(this.initialReportDetails);
+    }
+
+    get saveButtonDisabled() {
+        return !this.isChanged;
+    }
+
+    get saveAsButtonDisabled() {
+        return this.saveButtonDisabled || !this.reportDetails.reportId;
+    }
+
+    get changeLogString() {
+        let string = JSON.stringify(this.changeLog[this.changeLogIndex - 1]);
+        return string;
     }
 
     get showPreviewEnlargeButton() {
@@ -130,8 +174,17 @@ export default class DbmDatasetBuilder extends LightningElement {
         return this.previewPaneSizes[this.previewPaneIndex];
     }
 
+    get contentPaneStyle() {
+        let styles = [`max-width: ${100 - this.previewPaneWidth}% !important`];
+        styles.push(`width: ${100 - this.previewPaneWidth}% !important`);
+        return styles.join('; ');
+    }
+    get contentPaneStyleString() {
+        return JSON.stringify(this.contentPaneStyle);
+    }
+
     get previewPaneStyle() {
-        let styles = [`width: ${this.previewPaneWidth}% !important`];
+        let styles = [`min-width: ${this.previewPaneWidth}% !important`];
         if (this.previewPaneWidth) {
             styles.push('margin-left: 1em');
             styles.push('padding-left: 1em');
@@ -145,22 +198,15 @@ export default class DbmDatasetBuilder extends LightningElement {
         console.log(`in dbmDatasetBuilder, reportDetails = ${JSON.stringify(this.reportDetails)}`);
         // If report details are not already defined, start with a default template
         if (!this.reportDetails) {
-            this.reportDetails = defaultReportDetails();
+            this.reportDetails = { ...this.defaultReportDetails };
+        } else {
+            this.reportDetails = this.processReportDetails(this.reportDetails);
         }
-        this.processReportDetails();
+        this.resetChangeLog();
         this.getReportFolders();
 
         // Subscribe to Platform Event
-        const self = this;
-        const messageCallback = function (response) {
-            self.handlePlatformEventReceipt(response);
-        }
-        if (!this.subscription) {
-            subscribe(PLATFORM_EVENT.CHANNEL_NAME, -1, messageCallback).then(response => {
-                this.subscription = response;
-            });
-        }
-
+        this.subscribeToPlatformEvent();
     }
 
     rendered;
@@ -177,29 +223,42 @@ export default class DbmDatasetBuilder extends LightningElement {
 
     /* ACTION FUNCTIONS */
     resetBuilder() {
-        this.reportDetails = defaultReportDetails();
-        this.processReportDetails();
+        this.reportDetails = { ...this.defaultReportDetails };
+        // this.reportDetails = defaultReportDetails();
+        // this.processReportDetails();
         this.currentStepIndex = 0;
+        this.resetChangeLog();
         this.getReportFolders();
     }
 
-    async saveReport() {
+    resetChangeLog() {
+        this.initialReportDetails = { ...this.reportDetails };
+        this.changeLogIndex = 0;
+        this.changeLog = [{ ...this.reportDetails }];
+    }
+
+    async saveReportDetails() {
         console.log(`in saveReport, about to call Apex`);
         console.log(`reportDetails = ${JSON.stringify(this.reportDetails)}`);
         // this.showSubmitModal = false;
         this.saveSubmmitted = true;
         this.showSpinner = true;
-        try {
-            let reportDetailsRecordId = await saveReportDetails({ reportDetailsString: JSON.stringify(this.reportDetails) });
-            console.log(`Report successfully saved. Result: ${JSON.stringify(reportDetailsRecordId)}`);
-            this.reportDetails.reportDetailsRecordId = reportDetailsRecordId;
-            this.dispatchReportDetails();
-            await createReport({ reportDetailsRecordId: reportDetailsRecordId });
-            setTimeout(() => {
-                if (!this.saveSuccessful) {
-                    this.processSaveResult(`This is awkward. It doesn't seem like your report has been generated, though the DBM Report record has been created, with the ID of ${reportDetailsRecordId}. So maybe go check that out? Sorry about this!`);
+        // Process blank values into zeroes, if specified
+        if (this.reportDetails.saveBlanksAsZeroes) {
+            this.data.forEach(row => row.forEach(cell => {
+                if (cell === null) {
+                    cell = 0;
                 }
-            }, ERROR_WAIT);
+            }));
+        }
+        try {
+            let saveResponse = await saveReportDetails({ reportDetailsString: JSON.stringify(this.reportDetails) });
+            let reportDetailsRecordId = saveResponse.reportId;
+            // let reportDetailsRecordId = await saveReportDetails({ reportDetailsString: JSON.stringify(this.reportDetails) });
+            console.log(`Report successfully saved. Result: ${JSON.stringify(reportDetailsRecordId)}`);
+            this.reportDetails.id = reportDetailsRecordId;
+            this.dispatchReportDetails();
+            this.generateReportMetadata();
         } catch (error) {
             console.log(`Error saving report: ${JSON.stringify(error)}`);
             let errorMessage = 'There was an unknown error saving your report.';
@@ -219,13 +278,22 @@ export default class DbmDatasetBuilder extends LightningElement {
         }
     }
 
-    processReportDetails() {
-        this.reportDetails.metricLabel = this.reportDetails.metricName === METRIC_NAMES.CUSTOM.value ? this.reportDetails.customMetricName : this.metricNames.findFromValue(this.reportDetails.metricName).label;
-        this.reportDetails.groupings.forEach((grouping, index) => {
+    async generateReportMetadata() {
+        await createReport({ reportDetailsRecordId: this.reportDetails.id });
+        setTimeout(() => {
+            if (!this.saveSuccessful) {
+                this.processSaveResult(`This is awkward. It doesn't seem like your report has been generated, though the DBM Report record has been created, with the ID of ${reportDetailsRecordId}. So maybe go check that out? Sorry about this!`);
+            }
+        }, ERROR_WAIT);
+    }
+
+    processReportDetails(reportDetails) {
+        reportDetails.metricLabel = reportDetails.metricName === METRIC_NAMES.CUSTOM.value ? reportDetails.customMetricName : this.metricNames.findFromValue(reportDetails.metricName).label;
+        reportDetails.groupings.forEach((grouping, index) => {
             // Update classString for columns in dbmGroupings            
-            let classList = ['slds-col'];
-            if (index < this.reportDetails.numGroupings) {
-                classList.push(`slds-size_1-of-${this.reportDetails.numGroupings}`);
+            let classList = ['slds-col', 'slds-p-horizontal_xxx-small'];
+            if (index < reportDetails.numGroupings) {
+                classList.push(`slds-size_1-of-${reportDetails.numGroupings}`);
             } else {
                 classList.push('slds-hide');
             }
@@ -236,13 +304,26 @@ export default class DbmDatasetBuilder extends LightningElement {
                 [grouping.dataSource]: true
             };
 
+            grouping.groupingNumber = (Number(index) + 1);
+            grouping.inputLabel = 'Enter Name for Grouping #' + (Number(index) + 1);
+
             // Update isDisabled
-            grouping.isDisabled = index >= Number(this.reportDetails.numGroupings)
+            grouping.isDisabled = index >= Number(reportDetails.numGroupings)
         });
-        // console.log(`processReportDetails finished: ${JSON.stringify(this.reportDetails)}`);
-        // this.changeLog[this.changeLogIndex] = JSON.parse(JSON.stringify(this.reportDetails));
-        // this.changeLogIndex++;
-        // this.changeLog.length = this.changeLogIndex;
+        return reportDetails;
+    }
+
+    updateReportDetails(reportDetails, updateChangeLog = true) {
+        let newProcessedReportDetails = this.processReportDetails(reportDetails);
+        if (JSON.stringify(this.reportDetails) !== JSON.stringify(newProcessedReportDetails)) {
+            this.reportDetails = newProcessedReportDetails;
+            this.dispatchReportDetails();
+            if (updateChangeLog) {
+                this.changeLogIndex++;
+                this.changeLog[this.changeLogIndex] = { ...this.reportDetails };
+                this.changeLog.length = this.changeLogIndex + 1;
+            }
+        }
     }
 
     async getReportFolders() {
@@ -264,8 +345,10 @@ export default class DbmDatasetBuilder extends LightningElement {
             });
             this.dispatchEvent(toast);
         } else {
+            this.dispatchEvent(new CustomEvent(EVENTS.REFRESH_RECORDS));
             this.saveSuccessful = true;
             this.currentStepIndex++;
+            this.resetChangeLog();
             const toast = new ShowToastEvent({
                 title: 'Success',
                 message: `Your report has been successfully generated`,
@@ -277,17 +360,46 @@ export default class DbmDatasetBuilder extends LightningElement {
     }
 
     dispatchReportDetails() {
-        this.processReportDetails();
-        this.dispatchEvent(new CustomEvent(EVENTS.REPORT_DETAIL_CHANGE, { detail: this.reportDetails }))
+        // this.processReportDetails();
+        this.dispatchEvent(new CustomEvent(EVENTS.REPORT_DETAIL_CHANGE, { detail: this.processReportDetails(this.reportDetails) }))
+    }
+
+    importReportDetails() {
+        const importModalInput = this.template.querySelector('.importTextarea');
+        if (importModalInput) {
+            let importedDetails = JSON.parse(importModalInput.value);
+            importedDetails.id = null;
+            importedDetails.reportId = null;
+            this.updateReportDetails(importedDetails);
+            // this.reportDetails = this.processReportDetails(JSON.parse(importModal.value));
+            // this.processReportDetails();
+        }
+        this.closeImportModal();
+    }
+
+    closeImportModal() {
+        this.showImportModal = false;
     }
 
     /* EVENT HANDLERS */
     handleReportDetailChange(event) {
-        this.reportDetails = event.detail;
-        this.dispatchReportDetails();
+        this.updateReportDetails(event.detail);
     }
 
-    handleBackToListViewClick() {
+    async handleBackToListViewClick() {
+        // The user made any changes, confirm before leaving. Check to see if (1) an unsaved report is back to its default state, or (2) a cloned report is not back to 
+        // if (!(this.reportDetails.id && JSON.stringify(this.reportDetails) === JSON.stringify(this.defaultReportDetails)) && 
+        //     /*!this.undoButtonDisabled || */(!this.reportDetails.id && JSON.stringify(this.reportDetails) !== JSON.stringify(this.defaultReportDetails))) {
+        if (this.isChanged) {
+            const result = await LightningConfirm.open({
+                message: 'If you leave this page you will lose your unsaved changes. Are you sure you want to go back to the list view?',
+                label: 'Confirm Back',
+                theme: 'info'
+            });
+            if (!result) {
+                return;
+            }
+        }
         const detail = {
             target: EVENTS.TARGETS.LIST_VIEW
         }
@@ -303,17 +415,16 @@ export default class DbmDatasetBuilder extends LightningElement {
     }
 
     handleNextButtonClick(event) {
-        const currentBuilderStepComponent = this.template.querySelector('.contentPane *');
-        let isValid = currentBuilderStepComponent.validate();
+        let isValid = this.currentBuilderStepComponent.validate();
         if (isValid) {
-            if (this.showConfirm) {
-                this.saveReport();
-            } else if (this.isFinalStep) {
-                // event.target.disabled = true;
-                this.showConfirm = true;
-            } else {
-                this.currentStepIndex++;
-            }
+            // if (this.showConfirm) {
+            //     this.saveReportDetails();
+            // } else if (this.isFinalStep) {
+            //     // event.target.disabled = true;
+            //     this.showConfirm = true;
+            // } else {
+            this.currentStepIndex++;
+            // }
         }
     }
 
@@ -334,14 +445,35 @@ export default class DbmDatasetBuilder extends LightningElement {
         // console.log(`in dbmDatasetBuilder handleContentPaneMouseUp`);
         let dataCmp = this.template.querySelector('c-dbm-dataset-data');
         if (dataCmp && !dataCmp.preventClearSelection()) {
-            dataCmp.clearSelectedElements();
+            dataCmp.unselectSelectedElements();
         }
     }
 
-    // handleSaveButtonClick() {
-    //     console.log(`in handleSaveButtonClick`);
-    //     this.saveReport();
-    // }
+    async handleSaveButtonClick() {
+        console.log(`in handleSaveButtonClick`);
+        if (await this.validateSave()) {
+            this.saveReportDetails();
+        }
+    }
+
+    async handleSaveAsButtonClick() {
+        if (await this.validateSave()) {
+            let newName = await LightningPrompt.open({
+                message: 'Enter name for cloned report',
+                label: 'Enter New Report Name', // this is the header text
+                defaultValue: `Copy of ${this.reportDetails.reportName}`
+            });
+            if (newName) {
+                console.log(`going to clone ${newName}`);
+                this.reportDetails.reportName = newName;
+                this.reportDetails.id = null;
+                this.reportDetails.reportId = null;
+                this.saveReportDetails();
+            } else {
+                console.log(`no clone for you!`);
+            }
+        }
+    }
 
     async handleGenerateReportClick() {
         console.log(`in handleGenerateReportClick`);
@@ -359,6 +491,10 @@ export default class DbmDatasetBuilder extends LightningElement {
         // this.dispatchEvent(EVENTS.COPY_TO_CLIPBOARD);
         // this.dispatchEvent(EVENTS.COPY_TO_CLIPBOARD, { detail });
         // console.log(`finished handleCopyToClipboardClick`);
+    }
+
+    handleImportClick() {
+        this.showImportModal = true;
     }
 
     handlePlatformEventReceipt(response) {
@@ -396,11 +532,18 @@ export default class DbmDatasetBuilder extends LightningElement {
     }
 
     handleUndoClick() {
-
+        this.changeLogIndex--;
+        // console.log(JSON.stringify(this.changeLog[this.changeLogIndex]));
+        // this.reportDetails = this.changeLog[this.changeLogIndex];
+        // this.dispatchReportDetails();
+        this.updateReportDetails(this.changeLog[this.changeLogIndex], false);
     }
 
     handleRedoClick() {
-
+        this.changeLogIndex++;
+        this.updateReportDetails(this.changeLog[this.changeLogIndex], false);
+        // this.reportDetails = this.changeLog[this.changeLogIndex];
+        // this.dispatchReportDetails();
     }
 
     /*
@@ -409,7 +552,7 @@ export default class DbmDatasetBuilder extends LightningElement {
     }
 
     handleSubmitModalSaveClick() {
-        this.saveReport();
+        this.saveReportDetails();
     }
     */
 
@@ -422,12 +565,51 @@ export default class DbmDatasetBuilder extends LightningElement {
     }
 
     prependNamespace(str) {
-        // if (this.namespace?.data) {
-        //     return `${this.namespace.data}__${str}`;
-        // }
         if (this.namespace) {
             return `${this.namespace}__${str}`;
         }
         return str;
+    }
+
+    subscribeToPlatformEvent() {
+        const self = this;
+        const messageCallback = function (response) {
+            self.handlePlatformEventReceipt(response);
+        }
+        if (!this.subscription) {
+            subscribe(PLATFORM_EVENT.CHANNEL_NAME, -1, messageCallback).then(response => {
+                this.subscription = response;
+            });
+        }
+    }
+
+    async validateSave() {
+        let isValid = this.currentBuilderStepComponent.validate();
+        if (isValid) {
+            // Additional validation
+            let invalidMessage;
+            let validGroupingEntries = this.reportDetails.groupings.every(grouping => {
+                return grouping.isDisabled || grouping.entries.some(entry => entry.value);
+            });
+            let validData = isValid = this.reportDetails.data.some(row => row.some(cell => cell !== null));
+            let validFolderName = !!this.reportDetails.folderDeveloperName;
+            if (!validGroupingEntries) {
+                invalidMessage = 'Each grouping level must have at least one valid entry';
+            } else if (!validData) {
+                invalidMessage = 'At least one data entry must have a numeric value';
+            } else if (!validFolderName) {
+                invalidMessage = 'Please select a folder to save your report in'
+            }
+            if (invalidMessage) {
+                await LightningAlert.open({
+                    message: invalidMessage,
+                    theme: 'error', // a red theme intended for error states
+                    label: 'Missing Required Information', // this is the header text
+                });
+            } else {
+                return true;
+            }
+        }
+        return false;
     }
 }

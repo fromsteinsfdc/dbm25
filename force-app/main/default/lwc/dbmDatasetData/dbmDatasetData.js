@@ -1,5 +1,5 @@
 import { LightningElement, api, track } from 'lwc';
-import { VALIDATEABLE_COMPONENTS, switchGroupings } from "c/dbmUtils";
+import { VALIDATEABLE_COMPONENTS, KEYS, EVENTS, switchGroupings } from "c/dbmUtils";
 
 const CLASSES = {
     HIGHLIGHTED_HEADER_CELL: 'highlightedHeaderCell',
@@ -28,16 +28,16 @@ export default class DbmDatasetData extends LightningElement {
     @track dragOriginHeader = {};
     // @track activeDrag;
     elementToFocusOnRerender;
-    saveBlanksAsZeroes = false;
+    // saveBlanksAsZeroes = false;
     showRandomizeModal = false;
-    randomizeModal;
+    randomizeModalDetails;
 
     connectedCallback() {
         // window.addEventListener('mouseup', () => {
         //     this.handleGlobalMouseUp();
         // });
-        if (!this.randomizeModal) {
-            this.randomizeModal = {
+        if (!this.randomizeModalDetails) {
+            this.randomizeModalDetails = {
                 lowerBound: 0,
                 upperBound: 100,
                 numDecimals: 0,
@@ -48,7 +48,7 @@ export default class DbmDatasetData extends LightningElement {
     }
 
     get saveBlankButton() {
-        if (this.saveBlanksAsZeroes) {
+        if (this.reportDetails.saveBlanksAsZeroes) {
             return {
                 label: 'Blank values will be saved as zeroes',
                 iconName: 'utility:check',
@@ -64,7 +64,7 @@ export default class DbmDatasetData extends LightningElement {
     }
 
     get placeholder() {
-        return this.saveBlanksAsZeroes ? 0 : null;
+        return this.reportDetails.saveBlanksAsZeroes ? 0 : null;
     }
 
     get has2Groupings() {
@@ -111,7 +111,16 @@ export default class DbmDatasetData extends LightningElement {
     /* ACTION FUNCTIONS */
     dispatchDetails() {
         const detail = this.reportDetails;
-        this.dispatchEvent(new CustomEvent('reportdetailchange', { detail }));
+        this.dispatchEvent(new CustomEvent(EVENTS.REPORT_DETAIL_CHANGE, { detail }));
+    }
+
+    clearCellValues(onlySelected) {
+        let cells = onlySelected ? this.selectedInputCells : this.allInputCells;
+        [...cells].forEach(cell => {
+            this.reportDetails.data[cell.dataset.rowIndex][cell.dataset.colIndex] = null;            
+        });
+        this.dispatchDetails()
+
     }
 
     selectHighlightedElements() {
@@ -124,7 +133,7 @@ export default class DbmDatasetData extends LightningElement {
     }
 
     @api
-    clearSelectedElements() {
+    unselectSelectedElements() {
         this.dragOriginCell = {};
         this.dragOriginHeader = {};
         [...this.template.querySelectorAll(`.${CLASSES.SELECTED}`)].forEach(el => {
@@ -170,10 +179,19 @@ export default class DbmDatasetData extends LightningElement {
     }
 
     /* EVENT HANDLERS */
+    handleTableKeyDown(event) {
+        if (event.keyCode === KEYS.ESCAPE) {
+            this.unselectSelectedElements();
+        } else if (event.keyCode === KEYS.BACKSPACE || event.keyCode === KEYS.DELETE) {
+            this.clearCellValues(true);
+        }
+    }
     handleCellValueChange(event) {
+        console.log(`${event.target.value}, ${typeof event.target.value}`);
         let rowIndex = event.target.dataset.rowIndex;
         let colIndex = event.target.dataset.colIndex;
-        this.reportDetails.data[rowIndex][colIndex] = Number(event.target.value);
+        let value = event.target.value;        
+        this.reportDetails.data[rowIndex][colIndex] = (value.length === 0 && !this.reportDetails.saveBlanksAsZeroes) ? null : Number(value);
         this.dispatchDetails();
     }
 
@@ -185,25 +203,20 @@ export default class DbmDatasetData extends LightningElement {
     handleClearSelectedClick(event) {
         event.stopPropagation();
         event.preventDefault();
-        [...this.selectedInputCells].forEach(cell => {
-            this.reportDetails.data[cell.dataset.rowIndex][cell.dataset.colIndex] = null;            
-        });
-        this.dispatchDetails();
+        this.clearCellValues(true);
     }
 
     handleClearAllClick(event) {
         event.stopPropagation();
         event.preventDefault();
-        [...this.allInputCells].forEach(cell => {
-            this.reportDetails.data[cell.dataset.rowIndex][cell.dataset.colIndex] = null;            
-        });
-        this.dispatchDetails();
+        this.clearCellValues(false);
     }
 
     handleSaveBlanksClick(event) {
         event.stopPropagation();
         event.preventDefault();
-        this.saveBlanksAsZeroes = !this.saveBlanksAsZeroes;
+        this.reportDetails.saveBlanksAsZeroes = !this.reportDetails.saveBlanksAsZeroes;
+        this.dispatchDetails();
     }
 
     handleCellMouseEnter(event) {
@@ -221,7 +234,7 @@ export default class DbmDatasetData extends LightningElement {
     handleCellMouseDown(event) {
         // event.preventDefault();
         // event.stopPropagation();
-        this.clearSelectedElements();
+        this.unselectSelectedElements();
         this.dragOriginCell = {
             x: event.target.dataset.colIndex,
             y: event.target.dataset.rowIndex
@@ -247,16 +260,12 @@ export default class DbmDatasetData extends LightningElement {
         event.stopPropagation();
         event.preventDefault();
         const el = event.target;
-        // if (this.dragOriginHeader.dragType) {
-
-        // } else {
         if ('rowIndex' in el.dataset) {
             if (this.dragOriginHeader.dragType === 'col') {
                 return;
             }
             let startIndex = this.dragOriginHeader.dragType === 'row' ? Math.min(el.dataset.rowIndex, this.dragOriginHeader.index) : el.dataset.rowIndex;
             let endIndex = this.dragOriginHeader.dragType === 'row' ? Math.max(el.dataset.rowIndex, this.dragOriginHeader.index) : el.dataset.rowIndex;
-            // this.highlightCells(0, this.reportDetails.data[0].length, el.dataset.rowIndex, el.dataset.rowIndex);                
             this.highlightCells(0, this.reportDetails.data[0].length, startIndex, endIndex);
             this.highlightTableHeaders(undefined, undefined, startIndex, endIndex);
         }
@@ -266,13 +275,9 @@ export default class DbmDatasetData extends LightningElement {
             }
             let startIndex = this.dragOriginHeader.dragType === 'col' ? Math.min(el.dataset.colIndex, this.dragOriginHeader.index) : el.dataset.colIndex;
             let endIndex = this.dragOriginHeader.dragType === 'col' ? Math.max(el.dataset.colIndex, this.dragOriginHeader.index) : el.dataset.colIndex;
-
-            // this.highlightCells(el.dataset.colIndex, el.dataset.colIndex, 0, this.reportDetails.data.length);
             this.highlightCells(startIndex, endIndex, 0, this.reportDetails.data.length);
             this.highlightTableHeaders(startIndex, endIndex, undefined, undefined);
-
         }
-        // }
     }
 
     handleHeaderMouseLeave(event) {
@@ -283,7 +288,7 @@ export default class DbmDatasetData extends LightningElement {
     handleHeaderMouseDown(event) {
         event.stopPropagation();
         event.preventDefault();
-        this.clearSelectedElements();
+        this.unselectSelectedElements();
         const el = event.currentTarget;
         this.dragOriginHeader = {
             dragType: el.scope,
@@ -310,21 +315,19 @@ export default class DbmDatasetData extends LightningElement {
     }
 
     handleRandomizeModalSave() {
-        Object.keys(this.randomizeModal).forEach(property => {
-            console.log(`looking for ${property}`);
-            let el = this.template.querySelector(`[data-property="${property}"]`);
-            console.log(`${el.tagName}, ${el.dataset.property}, ${el.value}`);
+        Object.keys(this.randomizeModalDetails).forEach(property => {
+            let el = this.template.querySelector(`[data-randomize-property="${property}"]`);
             if (el) {
                 if (el.type === 'toggle' || el.type === 'checkbox') {
-                    this.randomizeModal[property] = el.checked;
+                    this.randomizeModalDetails[property] = el.checked;
                 } else if (el.type === 'number') {
-                    this.randomizeModal[property] = Number(el.value);
+                    this.randomizeModalDetails[property] = Number(el.value);
                 } else {
-                    this.randomizeModal[property] = el.value;    
+                    this.randomizeModalDetails[property] = el.value;    
                 }
             }
         });
-        let mod = this.randomizeModal;
+        let mod = this.randomizeModalDetails;
 
         let inputCells = [...(mod.selectedOnly ? this.selectedInputCells : this.allInputCells)];
                 
