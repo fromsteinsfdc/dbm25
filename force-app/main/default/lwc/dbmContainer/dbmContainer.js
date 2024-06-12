@@ -10,7 +10,7 @@ import REPORT_METRICLABEL_FIELD from "@salesforce/schema/DBM_Report__c.Metric_La
 import REPORT_METRICTYPE_FIELD from "@salesforce/schema/DBM_Report__c.Metric_Type__c";
 import REPORT_FOLDERNAME_FIELD from "@salesforce/schema/DBM_Report__c.Report_Folder_name__c";
 import REPORT_REPORTID_FIELD from "@salesforce/schema/DBM_Report__c.Report_ID__c";
-import REPORT_NUMBEOFGROUPINGS_FIELD from "@salesforce/schema/DBM_Report__c.Number_of_Groupings__c";
+import REPORT_NUMBEROFGROUPINGS_FIELD from "@salesforce/schema/DBM_Report__c.Number_of_Groupings__c";
 
 import DBMREPORTGROUPING_OBJECT from "@salesforce/schema/DBM_Report_Grouping__c";
 import GROUPING_NAME_FIELD from "@salesforce/schema/DBM_Report_Grouping__c.Name";
@@ -51,12 +51,23 @@ export default class DbmContainer extends LightningElement {
     namespace;
 
     @track reportDetailRecords = [];
-    reportDetailRecordsLoaded = false;
+    // reportDetailRecordsLoaded = false;
+    get reportDetailRecordsLoaded() {
+        return this._reportDetailRecordsLoaded;
+    }
+    set reportDetailRecordsLoaded(value) {
+        this._reportDetailRecordsLoaded = value;
+        this.showSpinner = !value;
+        // this.dispatchEvent(new CustomEvent(EVENTS.SPINNER_CHANGE, { detail: value }));
+    }
+    _reportDetailRecordsLoaded = false;
+
 
     menuPanelIsOpen = true;
     menuPanelOptions = [];
     selectedMenuPanelOption;
     showDatasetBuilder = false;
+    showSpinner = false;
 
     get menuPanelClass() {
         let classes = ['menuPanel', 'slds-panel', 'slds-size_medium', 'slds-panel_docked', 'slds-panel_docked-left'];
@@ -140,10 +151,18 @@ export default class DbmContainer extends LightningElement {
                 reportDetails.customMetricName = metricLabel;
             }
             // reportDetails.metricLabel = ;
-            reportDetails.metricType = Object.values(METRIC_TYPES).find(type => type.label === sobjectData[REPORT_METRICTYPE_FIELD.fieldApiName]).value;
+            console.log(`setting metric type`);
+            console.log(JSON.stringify(METRIC_TYPES));
+            console.log(REPORT_METRICTYPE_FIELD.fieldApiName);
+            console.log(JSON.stringify(sobjectData[REPORT_METRICTYPE_FIELD.fieldApiName]));
+            reportDetails.metricType = Object.values(METRIC_TYPES).find(type => type.label === sobjectData[REPORT_METRICTYPE_FIELD.fieldApiName] || type.value === sobjectData[REPORT_METRICTYPE_FIELD.fieldApiName]).value;            
+            console.log(`metric type: ${reportDetails.metricType}`);
             reportDetails.folderDeveloperName = sobjectData[REPORT_FOLDERNAME_FIELD.fieldApiName];
+            console.log(`folderDeveloperName: ${reportDetails.folderDeveloperName}`);
             reportDetails.reportId = sobjectData[REPORT_REPORTID_FIELD.fieldApiName];
-            reportDetails.numGroupings = sobjectData[REPORT_NUMBEOFGROUPINGS_FIELD.fieldApiName];
+            console.log(`reportId: ${reportDetails.reportId}`);
+            reportDetails.numGroupings = sobjectData[REPORT_NUMBEROFGROUPINGS_FIELD.fieldApiName];
+            console.log(`numGroupings: ${reportDetails.numGroupings}`);
 
 
             // (SELECT Name, Id, Grouping_Number__c, Data_Source__c, Object_Name__c, Field_Name__c, Display_as_Link__c FROM DBM_Report_Groupings__r ORDER BY Grouping_Number__c ASC), 
@@ -252,16 +271,19 @@ export default class DbmContainer extends LightningElement {
             async () => {
                 /* clipboard write failed */
                 await LightningAlert.open({
-                    message: 'this is the alert message',
+                    message: 'There was an error copying to the clipboard',
                     theme: 'error', // a red theme intended for error states
                     label: 'Error!', // this is the header text
                 });
-                //Alert has been closed
             },
         );
-
     }
 
+    handleSpinnerChange(event) {
+        this.showSpinner = event.detail;
+    }
+
+    /* No longer in use
     newMenuPanelOption(optionObject, isSelected) {
         const itemClassList = ['slds-nav-vertical__item', 'slds-nav-vertical__title', 'slds-p-left_x-small'];
         let newOption = {
@@ -278,7 +300,7 @@ export default class DbmContainer extends LightningElement {
             }
         }
         return newOption;
-    }
+    }*/
     /**/
 
 }

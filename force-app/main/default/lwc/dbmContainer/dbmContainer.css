@@ -1,8 +1,11 @@
 :host {
     --panel-width: 320px;
   }
-  
 
+.lightning-spinner {
+    z-index: 999 !important;
+}
+  
 .fullPage {
     position: absolute;
     overflow-x: hidden;
@@ -11,6 +14,7 @@
     top: 0;
     right: 0;
     left: 0;
+    z-index: 1;
 }
 
 .appContainer, .datasetBuilderContainer, .activePanel {

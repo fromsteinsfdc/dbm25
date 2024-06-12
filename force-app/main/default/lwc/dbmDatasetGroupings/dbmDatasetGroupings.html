@@ -4,8 +4,8 @@
             <template lwc:if={grouping.isDisabled}></template>
             <template lwc:else>
                 <div class={grouping.classString} key={grouping.groupingName}>
-                    <h2 class="slds-text-heading_small slds-p-vertical_small">{grouping.name}</h2>
-                    <lightning-button-group class="slds-p-bottom_small">
+                    <h2 class="slds-text-heading_small slds-p-vertical_x-small">{grouping.name}</h2>
+                    <lightning-button-group class="slds-p-bottom_xx-small">
                         <lightning-button-icon icon-name="utility:add" tooltip="Add Entry" title="Add"
                             onclick={handleAddEntryClick} data-index={groupingIndex}></lightning-button-icon>
                         <!-- <lightning-button-icon icon-name="utility:sort" tooltip="Reorder Entries" title="Reorder"
@@ -46,13 +46,13 @@
                                             required></lightning-input>
                                     </template>
                                 </div>
-                                <div class="entryActions">
+                                <div class="entryActions slds-p-left_xxx-small">
                                     <lightning-button-icon icon-name="utility:delete"
                                         data-grouping-index={groupingIndex} data-entry-index={entryIndex}
                                         onclick={handleEntryDeleteClick}></lightning-button-icon>
                                     <lightning-icon icon-name="utility:drag_and_drop" ondragstart={handleEntryDragStart}
                                         draggable="true" data-entry-index={entryIndex}
-                                        data-grouping-index={groupingIndex} class="dragHandle slds-p-left_xx-small"></lightning-icon>
+                                        data-grouping-index={groupingIndex} class="dragHandle"></lightning-icon>
                                 </div>
                             </div>
                         </template>

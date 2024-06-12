@@ -40,9 +40,10 @@ const DATA_SOURCE_OPTIONS = {
 
 const EVENTS = {
     NAVIGATE: 'navigate',
-    REPORT_DETAIL_CHANGE: 'reportdetailchange',
+    REPORT_DETAIL_CHANGE: 'reportdetailchange',    
     COPY_TO_CLIPBOARD: 'copy',
     REFRESH_RECORDS: 'refreshrecords',
+    SPINNER_CHANGE: 'spinnerchange',    
     TARGETS: {
         LIST_VIEW: 'listView',
         DATASET_BUILDER: 'datasetBuilder'

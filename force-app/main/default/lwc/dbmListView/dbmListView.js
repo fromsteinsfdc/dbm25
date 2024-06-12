@@ -42,7 +42,7 @@ export default class DbmListView extends LightningElement {
     _namespace;
 
     @api reportDetailRecords = [];
-    @api isLoaded = false;
+    // @api isLoaded = false;
 
 
     // @track tableRows = [];
@@ -58,6 +58,15 @@ export default class DbmListView extends LightningElement {
     ];
 
     // showSpinner;
+    get showSpinner() {
+        return this._showSpinner;
+    }
+    set showSpinner(value) {
+        this._showSpinner = value;
+        this.dispatchEvent(new CustomEvent(EVENTS.SPINNER_CHANGE, { detail: value }));
+    }
+    _showSpinner = false;
+
     columns = COLUMNS;
     sortDirection = DEFAULT_SORT_DIRECTION;
     sortedBy;
@@ -82,9 +91,9 @@ export default class DbmListView extends LightningElement {
         return this.selectedRowIndexes.length === this.tableRows.length;
     }
 
-    get showSpinner() {
-        return !this.isLoaded || this.isPending;
-    }
+    // get showSpinner() {
+    //     let value = !this.isLoaded || this.isPending;
+    // }
 
     get allAreHidden() {
         return this.tableRows.length && this.tableRows.every(row => row.isHidden);
@@ -214,7 +223,8 @@ export default class DbmListView extends LightningElement {
             theme: 'error',
         });
         if (confirmResult) {
-            this.isPending = true;
+            // this.isPending = true;
+            this.showSpinner = true;
             let toast;
             deleteReports({ reportDetailRecordIds: recordIds, reportIds: reportIds })
                 .then(() => {
@@ -235,7 +245,8 @@ export default class DbmListView extends LightningElement {
                 }))
                 .finally(() => {
                     this.dispatchEvent(toast);
-                    this.isPending = false;
+                    // this.isPending = false;
+                    this.showSpinner = false;
                 });
         }
     }

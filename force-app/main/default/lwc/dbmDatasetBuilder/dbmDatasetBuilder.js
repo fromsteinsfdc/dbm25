@@ -1,11 +1,12 @@
 // TODO: make content pane components auto-focus on first element
 // TODO: fix preview pane sizing
-// TODO: add email notifications
 // TODO: add Settings
 // TODO: add Help
-// TODO: add re-ordering
-// TODO: percent needs to be divided by 100
-// TODO: finish post-save behaviour
+// TODO: finish post-save behaviour within LWC
+// TODO: figure out what to call "percent" metric type in the picklist (Percent, percent, percent-fixed, etc)
+// TODO: fix spinner not blocking builer header
+// TODO (in progress): add email notifications
+// TODO (in progress): percent needs to be divided by 100
 // TODO (on hold): Add users to the report details object so images can be shown on screen
 // TODO (on hold): add option to display text options as links
 // TODO (complete): build list view
@@ -13,6 +14,7 @@
 // TODO (complete): disable bulk add button for non-text options
 // TODO (complete): don't include blank cells when not checked (and validate to ensure at least 1 is populated)
 // TODO (complete): add redo/undo functionality
+// TODO (complete): add re-ordering
 
 
 import { LightningElement, track, api, wire } from 'lwc';
@@ -22,10 +24,11 @@ import LightningConfirm from 'lightning/confirm';
 import LightningAlert from 'lightning/alert';
 import LightningPrompt from 'lightning/prompt';
 import { EVENTS, METRIC_NAMES, PREVIEW_PANE_SIZES, defaultReportDetails, transformConstantObject } from "c/dbmUtils";
-import getPackageNamespace from '@salesforce/apex/DBM25Controller.getPackageNamespace';
+// import getPackageNamespace from '@salesforce/apex/DBM25Controller.getPackageNamespace';
 import saveReportDetails from '@salesforce/apex/DBM25Controller.saveReportDetails';
 import createReport from '@salesforce/apex/DBM25Controller.createReport';
 import getReportFolders from '@salesforce/apex/DBM25Controller.getReportFolders';
+import sendFeedback from '@salesforce/apex/DBM25Controller.sendFeedback';
 
 const DUMMY_DATA_STRING = '[{"grouping":"Lorem","subgrouping":"Consectetur","value":115736,"groupingId":1650246140928,"isFirst":true,"id":"1650246140928"},{"grouping":"Lorem","subgrouping":"Adipiscing","value":88018,"groupingId":1650246140928,"isFirst":false,"id":"1650246140928"},{"grouping":"Lorem","subgrouping":"Eiusmod","value":122855,"groupingId":1650246140928,"isFirst":false,"id":"1650246140928"},{"grouping":"Lorem","subgrouping":"Tempor","value":62026,"groupingId":1650246140928,"isFirst":false,"id":"1650246140929"},{"grouping":"Ipsum","subgrouping":"Consectetur","value":33704,"groupingId":1650246144384,"isFirst":true,"id":"1650246144384"},{"grouping":"Ipsum","subgrouping":"Adipiscing","value":158166,"groupingId":1650246144384,"isFirst":false,"id":"1650246144385"},{"grouping":"Ipsum","subgrouping":"Eiusmod","value":102873,"groupingId":1650246144384,"isFirst":false,"id":"1650246144385"},{"grouping":"Ipsum","subgrouping":"Tempor","value":181465,"groupingId":1650246144384,"isFirst":false,"id":"1650246144385"},{"grouping":"Dolor","subgrouping":"Consectetur","value":16638,"groupingId":1650246149296,"isFirst":true,"id":"1650246149296"},{"grouping":"Dolor","subgrouping":"Adipiscing","value":12538,"groupingId":1650246149296,"isFirst":false,"id":"1650246149297"},{"grouping":"Dolor","subgrouping":"Eiusmod","value":88559,"groupingId":1650246149296,"isFirst":false,"id":"1650246149297"},{"grouping":"Dolor","subgrouping":"Tempor","value":88930,"groupingId":1650246149296,"isFirst":false,"id":"1650246149297"},{"grouping":"Sit","subgrouping":"Consectetur","value":58669,"groupingId":1650246153167,"isFirst":true,"id":"1650246153167"},{"grouping":"Sit","subgrouping":"Adipiscing","value":194768,"groupingId":1650246153167,"isFirst":false,"id":"1650246153167"},{"grouping":"Sit","subgrouping":"Eiusmod","value":24786,"groupingId":1650246153167,"isFirst":false,"id":"1650246153167"},{"grouping":"Sit","subgrouping":"Tempor","value":226838,"groupingId":1650246153167,"isFirst":false,"id":"1650246153168"},{"grouping":"Amet","subgrouping":"Consectetur","value":209758,"groupingId":1650246153539,"isFirst":true,"id":"1650246153539"},{"grouping":"Amet","subgrouping":"Adipiscing","value":7824,"groupingId":1650246153539,"isFirst":false,"id":"1650246153539"},{"grouping":"Amet","subgrouping":"Eiusmod","value":248899,"groupingId":1650246153539,"isFirst":false,"id":"1650246153539"},{"grouping":"Amet","subgrouping":"Tempor","value":169013,"groupingId":1650246153539,"isFirst":false,"id":"1650246153539"}]';
 
@@ -59,7 +62,7 @@ export default class DbmDatasetBuilder extends LightningElement {
     }
     _reportDetails;
 
-    dummyDataString = DUMMY_DATA_STRING;    // DELETE ME
+    dummyDataString = DUMMY_DATA_STRING;    // DELETE     
 
     // @api reportDetails;
     @api changeLog = [];
@@ -69,12 +72,21 @@ export default class DbmDatasetBuilder extends LightningElement {
     @track reportFolders = [];
     subscription;   // Used for receiving Platform Event
 
+    get showSpinner() {
+        return this._showSpinner;
+    }
+    set showSpinner(value) {
+        this._showSpinner = value;
+        this.dispatchEvent(new CustomEvent(EVENTS.SPINNER_CHANGE, { detail: value }));
+    }
+    _showSpinner = false;
+
     previewPaneSizes = [0, 25, 50];
     previewPaneIndex = 1;
     metricNames = transformConstantObject(METRIC_NAMES);
     // showSubmitModal = false;
     showImportModal = false;
-    showSpinner = false;
+    
     defaultReportDetails = { ...this.processReportDetails(defaultReportDetails()) };
     initialReportDetails;
 
@@ -123,14 +135,15 @@ export default class DbmDatasetBuilder extends LightningElement {
         return null;
     }
 
-    get nextButton() {
-        return {
-            label: 'Next',
-            isDisabled: this.currentStepIndex === this.builderSteps.length - 1,
-            // label: this.showConfirm ? 'Confirm' : (this.isFinalStep ? 'Submit' : 'Next'),
-            // variant: this.showConfirm ? 'success' : (this.isFinalStep ? 'brand' : 'neutral'),
-            // isDisabled: this.saveSubmmitted
-        }
+    // get nextButton() {
+    //     return {
+    //         label: 'Next',
+    //         isDisabled: this.currentStepIndex === this.builderSteps.length - 1,
+    //     }
+    // }
+
+    get nextButtonDisabled() {
+        return this.currentStepIndex === this.builderSteps.length - 1;
     }
 
     get backButtonDisabled() {
@@ -185,9 +198,9 @@ export default class DbmDatasetBuilder extends LightningElement {
 
     get previewPaneStyle() {
         let styles = [`min-width: ${this.previewPaneWidth}% !important`];
-        if (this.previewPaneWidth) {
-            styles.push('margin-left: 1em');
-            styles.push('padding-left: 1em');
+        styles.push('margin-left: 1em');
+        styles.push('padding-left: 1em');
+    if (this.previewPaneWidth) {
             styles.push('border-left: 1px solid rgb(116,116,116, .5)');
         }
         return styles.join('; ');
@@ -224,8 +237,6 @@ export default class DbmDatasetBuilder extends LightningElement {
     /* ACTION FUNCTIONS */
     resetBuilder() {
         this.reportDetails = { ...this.defaultReportDetails };
-        // this.reportDetails = defaultReportDetails();
-        // this.processReportDetails();
         this.currentStepIndex = 0;
         this.resetChangeLog();
         this.getReportFolders();
@@ -240,7 +251,6 @@ export default class DbmDatasetBuilder extends LightningElement {
     async saveReportDetails() {
         console.log(`in saveReport, about to call Apex`);
         console.log(`reportDetails = ${JSON.stringify(this.reportDetails)}`);
-        // this.showSubmitModal = false;
         this.saveSubmmitted = true;
         this.showSpinner = true;
         // Process blank values into zeroes, if specified
@@ -254,8 +264,7 @@ export default class DbmDatasetBuilder extends LightningElement {
         try {
             let saveResponse = await saveReportDetails({ reportDetailsString: JSON.stringify(this.reportDetails) });
             let reportDetailsRecordId = saveResponse.reportId;
-            // let reportDetailsRecordId = await saveReportDetails({ reportDetailsString: JSON.stringify(this.reportDetails) });
-            console.log(`Report successfully saved. Result: ${JSON.stringify(reportDetailsRecordId)}`);
+            // console.log(`Report successfully saved. Result: ${JSON.stringify(reportDetailsRecordId)}`);
             this.reportDetails.id = reportDetailsRecordId;
             this.dispatchReportDetails();
             this.generateReportMetadata();
@@ -291,7 +300,8 @@ export default class DbmDatasetBuilder extends LightningElement {
         reportDetails.metricLabel = reportDetails.metricName === METRIC_NAMES.CUSTOM.value ? reportDetails.customMetricName : this.metricNames.findFromValue(reportDetails.metricName).label;
         reportDetails.groupings.forEach((grouping, index) => {
             // Update classString for columns in dbmGroupings            
-            let classList = ['slds-col', 'slds-p-horizontal_xxx-small'];
+            // let classList = ['slds-col', 'slds-p-horizontal_xxx-small'];
+            let classList = ['slds-col', 'slds-p-horizontal_none'];
             if (index < reportDetails.numGroupings) {
                 classList.push(`slds-size_1-of-${reportDetails.numGroupings}`);
             } else {
@@ -344,10 +354,11 @@ export default class DbmDatasetBuilder extends LightningElement {
                 mode: 'sticky'
             });
             this.dispatchEvent(toast);
+            sendFeedback('Failure', errorMessage);
         } else {
             this.dispatchEvent(new CustomEvent(EVENTS.REFRESH_RECORDS));
             this.saveSuccessful = true;
-            this.currentStepIndex++;
+            // this.currentStepIndex++;
             this.resetChangeLog();
             const toast = new ShowToastEvent({
                 title: 'Success',
@@ -355,6 +366,7 @@ export default class DbmDatasetBuilder extends LightningElement {
                 variant: 'success',
             });
             this.dispatchEvent(toast);
+            sendFeedback('Success', '');
         }
         this.showSpinner = false;
     }
@@ -475,22 +487,18 @@ export default class DbmDatasetBuilder extends LightningElement {
         }
     }
 
-    async handleGenerateReportClick() {
-        console.log(`in handleGenerateReportClick`);
-        let result = await createReport();
-        console.log(`result = ${JSON.stringify(result)}`);
-    }
+    // async handleGenerateReportClick() {
+    //     console.log(`in handleGenerateReportClick`);
+    //     let result = await createReport();
+    //     console.log(`result = ${JSON.stringify(result)}`);
+    // }
 
     handleCopyToClipboardClick() {
         console.log(`in handleCopyToClipboardClick, about to dispatch ${EVENTS.COPY_TO_CLIPBOARD}`);
         const detail = {
             string: JSON.stringify(this.reportDetails)
         };
-        // console.log(`detail = ${JSON.stringify(detail)}`);
         this.dispatchEvent(new CustomEvent(EVENTS.COPY_TO_CLIPBOARD, { detail }))
-        // this.dispatchEvent(EVENTS.COPY_TO_CLIPBOARD);
-        // this.dispatchEvent(EVENTS.COPY_TO_CLIPBOARD, { detail });
-        // console.log(`finished handleCopyToClipboardClick`);
     }
 
     handleImportClick() {

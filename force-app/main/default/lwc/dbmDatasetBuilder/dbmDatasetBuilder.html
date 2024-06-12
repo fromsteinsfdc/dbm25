@@ -1,14 +1,15 @@
 <template>
-    <template lwc:if={showSpinner}>
+    <!-- <template lwc:if={showSpinner}>
         <lightning-spinner></lightning-spinner>
-    </template>
+    </template> -->
     <div class="builderContainer slds-grid slds-grid_vertical">
         <!-- {reportDetailsString} -->
         <!-- preview pane width: {previewPaneWidth} / content: {contentPaneStyle} -->
         <!-- {changeLogIndex} / {changeLog.length}<br>
         {changeLogString} -->
-        <div class="builderHeader slds-grid_vertical-align-center slds-p-vertical_x-small slds-border_bottom slds-p-horizontal_none slds-m-horizontal_none">
-            <div class="builderActions slds-p-bottom_small slds-clearfix slds-p-horizontal_none slds-m-horizontal_none">
+        <!-- slds-p-horizontal_none slds-m-horizontal_none -->
+        <div class="builderHeader slds-grid_vertical-align-center slds-p-vertical_x-small slds-border_bottom">
+            <div class="builderActions slds-p-bottom_small slds-clearfix">
                 <div class="leftActions slds-float_left">
                     <lightning-button-icon icon-name="utility:back" variant="brand" onclick={handleBackToListViewClick}
                         class="slds-p-right_xxx-small" tooltip="Back to List View" title="Back"
@@ -47,11 +48,11 @@
                     disabled={backButtonDisabled}></lightning-button>
                 <c-stage-path stages={builderSteps} current-stage-index={currentStepIndex}
                     onstageclick={handleStepClick} class="slds-col slds-p-horizontal_x-small"></c-stage-path>
-                <lightning-button label={nextButton.label} variant={nextButton.variant} disabled={nextButton.isDisabled}
+                <lightning-button label="Next" disabled={nextButtonDisabled}
                     onclick={handleNextButtonClick}></lightning-button>
             </div>
         </div>
-        <div class="builderBody slds-grid slds-gutters slds-p-around_x-small">
+        <div class="builderBody slds-grid">
             <div class="contentPane" style={contentPaneStyle} onmouseup={handleContentPaneMouseUp}>
                 <template lwc:if={currentStepIs.details}>
                     <c-dbm-dataset-details report-details={reportDetails}
@@ -129,5 +130,9 @@
         <c-dbm-modal header="Import Report Details" oncancel={closeImportModal} onconfirm={importReportDetails}>
             <lightning-textarea class="importTextarea" label="Paste Report Details JSON"></lightning-textarea>
         </c-dbm-modal>
+    </template>
+
+    <template lwc:if={showErrorModal}>
+        We're sorry, something's gone wrong. But don't worry, the dataset you built isn't lost. You can copy your dataset and try again.
     </template>
 </template>

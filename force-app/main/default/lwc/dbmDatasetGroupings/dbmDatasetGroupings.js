@@ -41,21 +41,14 @@ export default class DbmDatasetGroupings extends LightningElement {
 
     showBulkAddModal = false;
     bulkAddModalRendered = false;
-    currentOpenModalIndex;
-
-    // showReorderModal = false;
-    // @track entriesToReorder = [];
-    @track reorderAction;
-    // selectedGroupingIndex;
-    // selectedEntryIndex;
-    // newEntryIndex;
+    bulkAddGroupingIndex;
 
     dragAction;
     get dragElements() {
-        if (!this.dragAction) {
-            return null;
-        }
-        return {
+        // if (!this.dragAction) {
+        //     return null;
+        // }
+        return this.dragAction && {
             indicator: this.template.querySelector(`.dragIndicator[data-grouping-index="${this.dragAction.groupingIndex}"`),
             dragRow: this.template.querySelector(`.entryRow[data-grouping-index="${this.dragAction.groupingIndex}"][data-entry-index="${this.dragAction.originIndex}"]`)
         }
@@ -78,21 +71,6 @@ export default class DbmDatasetGroupings extends LightningElement {
                     this.addEntry(groupingIndex);
                 }
             }
-            // if (!grouping.entries.some(entry => {
-            //     return entry.value;
-            // })) {
-            //     if (grouping.presetEntries?.length) {
-            //         grouping.presetEntries.forEach(presetValue => {
-            //             this.addEntry(groupingIndex, presetValue);
-            //         })
-            //         // grouping.entries = grouping.presetEntries.map(entry => this.newEntry(entry));
-            //         grouping.presetEntries = [];
-            //     } else {
-            //         // grouping.entries = [this.newEntry()];
-            //         this.addEntry(groupingIndex);
-            //     }
-            //     this.dispatchDetails();
-            // }
         });
         if (initialReportDetails !== JSON.stringify(this.reportDetails)) {
             this.dispatchDetails();
@@ -165,17 +143,6 @@ export default class DbmDatasetGroupings extends LightningElement {
         }
     }
 
-    // moveEntry(originIndex, newIndex) {
-    moveEntry() {
-        let movingEntry = this.reorderAction.entries.splice(this.reorderAction.selectedEntryIndex, 1)[0];
-        this.reorderAction.entries.splice(this.reorderAction.newEntryIndex, 0, movingEntry);
-        this.reorderAction.selectedEntryIndex = this.reorderAction.newEntryIndex;
-        this.reorderAction = this.reorderAction;
-        // let movingEntry = this.entriesToReorder.splice(this.selectedEntryIndex, 1)[0];
-        // this.entriesToReorder.splice(this.newEntryIndex, 0, movingEntry);
-        // this.selectedEntryIndex = this.newEntryIndex;
-    }
-
     reorderEntries(groupingIndex, originIndex, targetIndex) {
         let entries = this.reportDetails.groupings[groupingIndex].entries;
         let movingEntry = entries.splice(originIndex, 1)[0];
@@ -198,13 +165,11 @@ export default class DbmDatasetGroupings extends LightningElement {
     /* EVENT HANDLERS */
     handleAddEntryClick(event) {
         let index = Number(event.target.dataset.index);
-        // this.reportDetails.groupings[index].entries.push(this.newEntry());
         this.addEntry(index);
         this.dispatchDetails();
     }
 
     handleEntryRecordChange(event) {
-        // console.log(`in dbmGroupings handleEntryRecordChange`);
         let eventData = this.getDataFromEvent(event);
         eventData.entry.recordId = event.detail.value;
         eventData.entry.value = event.detail.selectedRecord?.label;
@@ -214,9 +179,6 @@ export default class DbmDatasetGroupings extends LightningElement {
     handleEntryTextChange(event) {
         let eventData = this.getDataFromEvent(event);
         eventData.entry.value = event.detail.value;
-        // const groupingIndex = Number(event.target.dataset.groupingIndex);
-        // const entryIndex = Number(event.target.dataset.entryIndex);
-        // this.reportDetails.groupings[groupingIndex].entries[entryIndex].value = event.detail.value;
         this.dispatchDetails();
     }
 
@@ -231,7 +193,7 @@ export default class DbmDatasetGroupings extends LightningElement {
 
     handleBulkAddClick(event) {
         this.showBulkAddModal = true;
-        this.currentOpenModalIndex = Number(event.target.dataset.index);
+        this.bulkAddGroupingIndex = Number(event.target.dataset.index);
     }
 
     handleBulkAddModalKeydown(event) {
@@ -242,19 +204,17 @@ export default class DbmDatasetGroupings extends LightningElement {
 
     handleBulkAddModalSaveClick() {
         let lines = this.bulkAddTextareaElement.value.split(/\n/);
-        let grouping = this.reportDetails.groupings[this.currentOpenModalIndex];
+        let grouping = this.reportDetails.groupings[this.bulkAddGroupingIndex];
         let lineCount = 0;
         lines.forEach(line => {
             if (line) {
-                // grouping.entries.push(this.newEntry(line));
-                this.addEntry(this.currentOpenModalIndex, line);
+                this.addEntry(this.bulkAddGroupingIndex, line);
                 lineCount++;
             }
         });
         // If the bulk add was done with a blank first entry, remove that entry after the bulk add
         if (grouping.entries.length === lineCount + 1 && !grouping.entries[0].value) {
-            // grouping.entries.shift();
-            this.removeEntry(this.currentOpenModalIndex, 0);
+            this.removeEntry(this.bulkAddGroupingIndex, 0);
         }
         this.closeBulkAddModal();
         this.dispatchDetails();
@@ -273,24 +233,23 @@ export default class DbmDatasetGroupings extends LightningElement {
         event.preventDefault();
         event.stopPropagation();
         let entryIndex = Number(event.currentTarget.dataset.entryIndex);
+        // Only take dragover action if the dragged item is in the same groupingIndex and isn't being dragged over itself
         if (event.currentTarget.dataset.groupingIndex == this.dragAction.groupingIndex && entryIndex != this.dragAction.originIndex) {
-            // let mouseY = event.clientY;
             let rect = event.currentTarget.getBoundingClientRect();
-            let indicatorEl = this.dragElements.indicator;
-            let offset = 0.25 * parseFloat(getComputedStyle(document.documentElement).fontSize);
+            let offset = 0.25 * parseFloat(getComputedStyle(document.documentElement).fontSize);    // Converting rem to px. 0.25 is half the size of x-small padding
             let baselineY = this.template.querySelector('.entriesContainer').getBoundingClientRect().top;
             if (event.clientY < rect.top + rect.height / 2) {
                 if (entryIndex !== this.dragAction.originIndex + 1) {
                     this.dragAction.targetIndex = entryIndex;
-                    indicatorEl.style.top = `${rect.top - baselineY - offset - 1}px`;
+                    this.dragElements.indicator.style.top = `${rect.top - baselineY - offset - 1}px`; // -1 was just through trial and error
                 }
             } else {
                 if (entryIndex !== this.dragAction.originIndex - 1) {
                     this.dragAction.targetIndex = entryIndex + 1;
-                    indicatorEl.style.top = `${rect.bottom - baselineY + offset - 1}px`;
+                    this.dragElements.indicator.style.top = `${rect.bottom - baselineY + offset - 1}px`; // -1 was just through trial and error
                 }
             }
-            indicatorEl.classList.add(CLASSES.VISIBLE_INDICATOR);
+            this.dragElements.indicator.classList.add(CLASSES.VISIBLE_INDICATOR);
         }
     }
 
@@ -306,8 +265,6 @@ export default class DbmDatasetGroupings extends LightningElement {
             this.reorderEntries(this.dragAction.groupingIndex, this.dragAction.originIndex, this.dragAction.targetIndex);            
         }
     }
-
-
 
     /* UTILITY FUNCTIONS */
     getDataFromEvent(event) {
@@ -352,6 +309,13 @@ export default class DbmDatasetGroupings extends LightningElement {
 
     /* Dead code from when I thought we were going to do an up/down reordering of entries rather than drag and drop */
     /*
+    moveEntry() {
+        let movingEntry = this.reorderAction.entries.splice(this.reorderAction.selectedEntryIndex, 1)[0];
+        this.reorderAction.entries.splice(this.reorderAction.newEntryIndex, 0, movingEntry);
+        this.reorderAction.selectedEntryIndex = this.reorderAction.newEntryIndex;
+        this.reorderAction = this.reorderAction;
+    }
+
     handleReorderClick(event) {
         let groupingIndex = Number(event.target.dataset.index);
         this.reorderAction = {
