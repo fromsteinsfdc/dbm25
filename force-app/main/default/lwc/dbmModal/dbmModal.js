@@ -9,9 +9,15 @@ export default class DbmModal extends LightningElement {
     @api header;
     @api cancelLabel = 'Cancel';
     @api confirmLabel = 'Confirm';
-    @api showModal = false;
-    @api preventDefaultCancel = false;
+    @api hideConfirm = false;
+    // @api disableAutoFocus = false;
+    // @api showModal = false;
+    // @api preventDefaultCancel = false;
     @api name;
+
+    get showConfirmButton() {
+        return !this.hideConfirm;
+    }
 
     /* ACTION FUNCTIONS */
     // @api

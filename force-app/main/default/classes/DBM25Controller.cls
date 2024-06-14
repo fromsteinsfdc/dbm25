@@ -5,6 +5,9 @@ public with sharing class DBM25Controller {
     public static final String userObjectPrefix = '005';
     public static final String SUCCESS = 'success';
     public static final String ERROR = 'error';
+    public static final String METRIC_TYPE_PERCENT = 'percent';
+    public static final String METRIC_TYPE_NUMBER = 'number';
+    public static final String notificationEmail = 'dashboardmagic@gmail.com';
     
     public static String packageNamespace;
     
@@ -210,10 +213,8 @@ public with sharing class DBM25Controller {
             insert newDataEntries;
             
             returnMap.put('reportId', newReport.Id);
+            // returnMap.put('reportName', newReport.Name);
             returnMap.put('isSuccess', true);
-            // returnString = newReport.Id;
-            // String responseString = newReport.Id;
-            // return responseString;
         } catch (Exception e) {
             returnMap.put('errorMessage', e.getMessage());
             returnMap.put('isSuccess', false);
@@ -348,6 +349,32 @@ public with sharing class DBM25Controller {
         }
     }
 
+    @AuraEnabled
+    public static Map<String, Object> sendFeedback(String subject, String body) {
+        Map<String, Object> response = new Map<String, Object>();
+        Messaging.SingleEmailMessage email = new Messaging.SingleEmailMessage();
+        List<String> bodyElements = new List<String>{ body, '<br>' };
+        Map<String, String> bodyMap = new Map<String, String>();
+        bodyMap.put('Username', UserInfo.getUserName());
+        bodyMap.put('Email', UserInfo.getUserEmail());
+        bodyMap.put('Org ID', UserInfo.getOrganizationId());
+        bodyMap.put('Org Name', UserInfo.getOrganizationName());
+        for (String bodyElement : bodyMap.keySet()) {
+            bodyElements.add(bodyElement +': '+ bodyMap.get(bodyElement));
+        }
+        email.setToAddresses(new List<String>{notificationEmail});
+        email.setSubject(subject);    
+        email.setHtmlBody(String.join(bodyElements, '<br>'));
+        try {
+            List<Messaging.SendEmailResult> results = Messaging.sendEmail(new Messaging.SingleEmailMessage[] { email });
+            response.put('isSuccess', true);
+        } catch(Exception e){
+            response.put('isSuccess', false);
+            response.put('errorMessage', e.getMessage());
+        }
+        
+        return response;
+    }
 
     /* The following section is customized adapters based on the MetadataService class  */
     public static MetadataService.ReportColumn getMetadataColumn(String fullFieldName, boolean isNumber) {
@@ -415,11 +442,14 @@ public with sharing class DBM25Controller {
 
     public static MetadataService.ReportAggregate getFormulaColumn(String label, String datatype) {
         if(datatype == null) {
-            datatype = 'number';
+            datatype = METRIC_TYPE_NUMBER;
         }
         MetadataService.ReportAggregate agg = new MetadataService.ReportAggregate();
         // agg.calculatedFormula = dataEntryObjRes.getName() +'.'+ valueFieldRes.getName() +':SUM';
         agg.calculatedFormula = 'DBM_Data_Entry__c.Value__c:SUM';   // For some reason this fails with the namespace included, so I removed it
+        if (datatype == METRIC_TYPE_PERCENT) {
+            agg.calculatedFormula += '/100';
+        }
         agg.datatype = datatype;
         agg.developerName = 'FORMULA1'; // note: must start with 'FORMULA'
         agg.isActive = true;

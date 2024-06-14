@@ -3,6 +3,7 @@ import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import { EVENTS, NAVIGATION, METRIC_NAMES, METRIC_TYPES, defaultReportDetails, transformConstantObject } from "c/dbmUtils";
 import getReportDetailRecords from '@salesforce/apex/DBM25Controller.getReportDetailRecords';
 import getPackageNamespace from '@salesforce/apex/DBM25Controller.getPackageNamespace';
+import sendFeedback from '@salesforce/apex/DBM25Controller.sendFeedback';
 
 import DBMREPORT_OBJECT from "@salesforce/schema/DBM_Report__c";
 import REPORT_NAME_FIELD from "@salesforce/schema/DBM_Report__c.Name";
@@ -46,36 +47,47 @@ const MENU_PANEL_OPTIONS = [
     { name: 'help', label: 'Help', iconName: 'utility:help_center' },
 ]
 
+const FEEDBACK_TYPE_OPTIONS = [
+    { label: `Bug - something isn\'t working properly`, value: 'Bug' },
+    { label: `Feature Suggestion - something I think you should implement`, value: 'Feature Suggestion' },
+    { label: `Design Suggestion - something I think should work/look differently`, value: 'Design Suggestion' },
+    { label: `Question - something that isn't in the documentation`, value: 'Question' },
+    { label: `Other`, value: 'Other' },        
+];
+
+const FEEDBACK_PRIORITY_OPTIONS = [
+    { label: `Low - Just a suggestion, doesn't stop me from using/enjoying DBM2`, value: 'Low' },
+    { label: `Medium - I think this would really help, but it isn't make or break`, value: 'Medium' },
+    { label: `High - Signficant impact, but I can still technically make it work`, value: 'High' },
+    { label: `Critical - It isn't working, I can't save/generate reports`, value: 'CRITICAL' },
+];
 export default class DbmContainer extends LightningElement {
     @wire(getPackageNamespace)
     namespace;
 
     @track reportDetailRecords = [];
-    // reportDetailRecordsLoaded = false;
+
     get reportDetailRecordsLoaded() {
         return this._reportDetailRecordsLoaded;
     }
     set reportDetailRecordsLoaded(value) {
         this._reportDetailRecordsLoaded = value;
         this.showSpinner = !value;
-        // this.dispatchEvent(new CustomEvent(EVENTS.SPINNER_CHANGE, { detail: value }));
     }
     _reportDetailRecordsLoaded = false;
 
 
-    menuPanelIsOpen = true;
-    menuPanelOptions = [];
-    selectedMenuPanelOption;
-    showDatasetBuilder = false;
+    // showDatasetBuilder = false;
     showSpinner = false;
+    showFeedbackSpinner = false;    
+    showHelpModal = false;
 
-    get menuPanelClass() {
-        let classes = ['menuPanel', 'slds-panel', 'slds-size_medium', 'slds-panel_docked', 'slds-panel_docked-left'];
-        if (this.menuPanelIsOpen) {
-            classes.push('slds-is-open');
-        }
-        return classes.join(' ');
-    }
+    documentationLink = 'https://salesforce.quip.com/4iAgAXt6pK5u';
+    slackChannelLink = 'https://salesforce.enterprise.slack.com/archives/C02JG9L59C3';
+    feedbackTypeOptions = FEEDBACK_TYPE_OPTIONS;
+    feedbackPriorityOptions = FEEDBACK_PRIORITY_OPTIONS;
+    feedbackResult;
+    
 
     activePanel;
     get activePanelIs() {
@@ -83,10 +95,6 @@ export default class DbmContainer extends LightningElement {
             [this.activePanel]: true
         }
     }
-
-    // get showSpinner() {
-    //     return !this.reportDetailRecordsLoaded;
-    // }
 
     /* LIFECYCLE HOOKS */
     connectedCallback() {
@@ -111,6 +119,15 @@ export default class DbmContainer extends LightningElement {
         this.reportDetailRecordsLoaded = true;
     }
 
+    openHelpModal() {
+        this.showHelpModal = true;
+    }
+
+    closeHelpModal() {
+        this.showHelpModal = false;
+        this.feedbackResult = null;
+    }
+
     /* EVENT HANDLERS */
     handleReportDetailChange(event) {
         // console.log(`in dbmContainer, reportDetails: ${JSON.stringify(event.detail)}`);
@@ -132,17 +149,84 @@ export default class DbmContainer extends LightningElement {
         this.activePanel = event.detail.target;
     }
 
+    handleCopyToClipboard(event) {
+        console.log(`in handleCopyToClipboard`);// ${event}`);
+        let copyString;
+        if (event.detail.string) {
+            copyString = event.detail.string;
+        } else if (event.detail.sobjectRecord) {
+            copyString = JSON.stringify(this.processApexRecord(event.detail.sobjectRecord));
+        }
+        navigator.clipboard.writeText(copyString).then(
+            () => {
+                /* clipboard successfully set */
+                const toast = new ShowToastEvent({
+                    title: 'Success',
+                    message: 'A JSON (code) string containing your report details has been successfully copied to your clipboard',
+                    variant: 'success',
+                });
+                this.dispatchEvent(toast);
+
+            },
+            async () => {
+                /* clipboard write failed */
+                await LightningAlert.open({
+                    message: 'There was an error copying to the clipboard',
+                    theme: 'error', // a red theme intended for error states
+                    label: 'Error!', // this is the header text
+                });
+            },
+        );
+    }
+
+    handleSpinnerChange(event) {
+        this.showSpinner = event.detail;
+    }
+
+    handleOpenReport(event) {
+        window.open('/' + event.detail, '_blank');
+    }
+
+    async handleSubmitFeedbackClick() {
+        let feedbackType = this.template.querySelector('.feedbackType');
+        let feedbackPriority = this.template.querySelector('.feedbackPriority');
+        let feedbackComments = this.template.querySelector('.feedbackComments');
+        let isValid = feedbackType.reportValidity();
+        isValid = feedbackPriority.reportValidity() && isValid;
+        isValid = feedbackComments.reportValidity() && isValid;
+
+        let feedbackResponse = this.template.querySelector('.feedbackResponse').checked;
+        if (isValid) {
+            const subject = `Feedback — ${feedbackType.value} (${feedbackPriority.value} priority)`;
+            const body = (feedbackResponse ? 'RESPONSE REQUESTED<br>' : '') + feedbackComments.value;
+            this.showFeedbackSpinner = true;
+            let response = await sendFeedback({ subject, body });
+            if (response.isSuccess) {
+                this.feedbackResult = 'Thank you for your feedback!' + (feedbackResponse ? ' Someone will follow up with you shortly.' : '');
+            } else {
+                this.feedbackResult = 'Sorry, there was an error submitting your feedback. Please try again.';
+            }
+            this.showFeedbackSpinner = false;            
+        }
+    }
+
+    handleClearFeedbackResultClick() {
+        this.feedbackResult = null;
+    }
+
     /* UTILITY FUNCTIONS */
     processApexRecord(sobjectData) {
-        console.log(`in processApexRecord`);
+        console.log(`in dbmContainer processApexRecord`);
+        // Start by assuming the report details will be the default values
         let reportDetails = defaultReportDetails();
+        // If SObject data is being passed in, then overwrite the default values with that data
         if (sobjectData) {
             // Populate Report Details properties
             reportDetails.id = sobjectData.Id;
             reportDetails.reportName = sobjectData[REPORT_NAME_FIELD.fieldApiName];
             let metricLabel = sobjectData[REPORT_METRICLABEL_FIELD.fieldApiName];
             let standardLabel = Object.values(METRIC_NAMES).find(metricName => metricName.label === metricLabel);
-            console.log(`standardLabel = ${standardLabel}`);
+            // console.log(`standardLabel = ${standardLabel}`);
             if (standardLabel) {
                 reportDetails.metricName = standardLabel.value;
             } else {
@@ -151,18 +235,18 @@ export default class DbmContainer extends LightningElement {
                 reportDetails.customMetricName = metricLabel;
             }
             // reportDetails.metricLabel = ;
-            console.log(`setting metric type`);
-            console.log(JSON.stringify(METRIC_TYPES));
-            console.log(REPORT_METRICTYPE_FIELD.fieldApiName);
-            console.log(JSON.stringify(sobjectData[REPORT_METRICTYPE_FIELD.fieldApiName]));
+            // console.log(`setting metric type`);
+            // console.log(JSON.stringify(METRIC_TYPES));
+            // console.log(REPORT_METRICTYPE_FIELD.fieldApiName);
+            // console.log(JSON.stringify(sobjectData[REPORT_METRICTYPE_FIELD.fieldApiName]));
             reportDetails.metricType = Object.values(METRIC_TYPES).find(type => type.label === sobjectData[REPORT_METRICTYPE_FIELD.fieldApiName] || type.value === sobjectData[REPORT_METRICTYPE_FIELD.fieldApiName]).value;            
-            console.log(`metric type: ${reportDetails.metricType}`);
+            // console.log(`metric type: ${reportDetails.metricType}`);
             reportDetails.folderDeveloperName = sobjectData[REPORT_FOLDERNAME_FIELD.fieldApiName];
-            console.log(`folderDeveloperName: ${reportDetails.folderDeveloperName}`);
+            // console.log(`folderDeveloperName: ${reportDetails.folderDeveloperName}`);
             reportDetails.reportId = sobjectData[REPORT_REPORTID_FIELD.fieldApiName];
-            console.log(`reportId: ${reportDetails.reportId}`);
+            // console.log(`reportId: ${reportDetails.reportId}`);
             reportDetails.numGroupings = sobjectData[REPORT_NUMBEROFGROUPINGS_FIELD.fieldApiName];
-            console.log(`numGroupings: ${reportDetails.numGroupings}`);
+            // console.log(`numGroupings: ${reportDetails.numGroupings}`);
 
 
             // (SELECT Name, Id, Grouping_Number__c, Data_Source__c, Object_Name__c, Field_Name__c, Display_as_Link__c FROM DBM_Report_Groupings__r ORDER BY Grouping_Number__c ASC), 
@@ -205,17 +289,17 @@ export default class DbmContainer extends LightningElement {
             dataEntrySobjects.forEach(dataEntrySobject => {
                 const grouping1 = dataEntrySobject[DATAENTRY_GROUPING1_FIELD.fieldApiName];
                 const grouping2 = dataEntrySobject[DATAENTRY_GROUPING2_FIELD.fieldApiName];
-                console.log(`dataEntry = ${JSON.stringify(dataEntrySobject)}`);
-                console.log(`grouping1 = ${grouping1}, grouping2 = ${grouping2}`);
+                // console.log(`dataEntry = ${JSON.stringify(dataEntrySobject)}`);
+                // console.log(`grouping1 = ${grouping1}, grouping2 = ${grouping2}`);
                 let rowIndex = reportDetails.groupings[0].entries.findIndex(groupingEntry => groupingEntry.id === grouping1);
                 let colIndex = grouping2 ? reportDetails.groupings[1].entries.findIndex(groupingEntry => groupingEntry.id === grouping2) : 0;
-                console.log(`rowIndex = ${rowIndex}, colIndex = ${colIndex}, value = ${dataEntrySobject[DATAENTRY_VALUE_FIELD.fieldApiName]}`);
+                // console.log(`rowIndex = ${rowIndex}, colIndex = ${colIndex}, value = ${dataEntrySobject[DATAENTRY_VALUE_FIELD.fieldApiName]}`);
 
                 data[rowIndex][colIndex] = dataEntrySobject[DATAENTRY_VALUE_FIELD.fieldApiName];
             });
             reportDetails.data = data;
         }
-        console.log(`reportDetails = ${JSON.stringify(reportDetails)}`);
+        console.log(`reportDetails at end of processApexRecord = ${JSON.stringify(reportDetails)}`);
         return reportDetails;
     }
 
@@ -227,7 +311,7 @@ export default class DbmContainer extends LightningElement {
     }
 
 
-    /* Unused code related to menu panels (no longer in use) */
+    /* Unused code related to menu panels (no longer in use)
     selectMenuPanelOption(optionName) {
         console.log(`in selectMenuPanelOption, selecting "${optionName}"`);
         this.selectedMenuPanelOption = optionName;
@@ -249,41 +333,7 @@ export default class DbmContainer extends LightningElement {
         this.selectMenuPanelOption(event.currentTarget.dataset.name);
     }
 
-    handleCopyToClipboard(event) {
-        console.log(`in handleCopyToClipboard`);// ${event}`);
-        let copyString;
-        if (event.detail.string) {
-            copyString = event.detail.string;
-        } else if (event.detail.sobjectRecord) {
-            copyString = JSON.stringify(this.processApexRecord(event.detail.sobjectRecord));
-        }
-        navigator.clipboard.writeText(copyString).then(
-            () => {
-                /* clipboard successfully set */
-                const toast = new ShowToastEvent({
-                    title: 'Success',
-                    message: 'A JSON (code) string containing your report details has been successfully copied to your clipboard',
-                    variant: 'success',
-                });
-                this.dispatchEvent(toast);
 
-            },
-            async () => {
-                /* clipboard write failed */
-                await LightningAlert.open({
-                    message: 'There was an error copying to the clipboard',
-                    theme: 'error', // a red theme intended for error states
-                    label: 'Error!', // this is the header text
-                });
-            },
-        );
-    }
-
-    handleSpinnerChange(event) {
-        this.showSpinner = event.detail;
-    }
-
-    /* No longer in use
     newMenuPanelOption(optionObject, isSelected) {
         const itemClassList = ['slds-nav-vertical__item', 'slds-nav-vertical__title', 'slds-p-left_x-small'];
         let newOption = {

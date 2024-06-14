@@ -4,7 +4,7 @@
     </lightning-input>
     <div class="metricContainer slds-grid slds-gutters slds-wrap">
         <div class="slds-col slds-size_1-of-2">
-            <lightning-combobox label="Select Metric Name" options={metricNames.options} name="metricName"
+            <lightning-combobox class="reportName" label="Select Metric Name" options={metricNames.options} name="metricName"
                 value={reportDetails.metricName} onchange={handleReportDetailChange} required>
             </lightning-combobox>
         </div>

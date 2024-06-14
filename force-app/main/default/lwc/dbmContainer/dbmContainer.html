@@ -2,7 +2,7 @@
     <template lwc:if={showSpinner}>
         <lightning-spinner></lightning-spinner>
     </template>
-    <div class="fullPage">        
+    <div class="fullPage">
         <div class="appContainer slds-card slds-grid slds-grid_vertical">
             <div class="appHeader">
                 <div class="slds-page-header">
@@ -29,8 +29,12 @@
                             <div class="slds-page-header__controls">
                                 <div class="slds-page-header__control">
                                     <!-- <lightning-button label="New Dataset" onclick={handleNewDatasetClick} class="slds-p-horizontal_xx-small"></lightning-button> -->
-                                    <lightning-button-icon icon-name="utility:help_center" size="large" variant="bare" class="slds-p-horizontal_xx-small" tooltip="Help" title="Help" alternative-text="Help"></lightning-button-icon>
-                                    <lightning-button-icon icon-name="utility:settings" size="large" variant="bare" class="slds-p-horizontal_xx-small" tooltip="Settings" title="Help" alternative-text="Settings"></lightning-button-icon>
+                                    <lightning-button-icon icon-name="utility:help_center" size="large" variant="bare"
+                                        class="slds-p-horizontal_xx-small" tooltip="Help" title="Help"
+                                        alternative-text="Help" onclick={openHelpModal}></lightning-button-icon>
+                                    <lightning-button-icon icon-name="utility:settings" size="large" variant="bare"
+                                        class="slds-p-horizontal_xx-small" tooltip="Settings" title="Help"
+                                        alternative-text="Settings"></lightning-button-icon>
                                 </div>
                             </div>
                         </div>
@@ -44,17 +48,62 @@
                 <div class="activePanel slds-col slds-p-around_xxx-small">
                     <template lwc:if={activePanelIs.listView}>
                         <div class="listViewContainer">
-                            <c-dbm-list-view namespace={namespace.data} report-detail-records={reportDetailRecords} is-loaded={reportDetailRecordsLoaded} onnavigate={handleNavigation} oncopy={handleCopyToClipboard} onrefreshrecords={handleRefreshRecordsList} onspinnerchange={handleSpinnerChange}></c-dbm-list-view>
+                            <c-dbm-list-view namespace={namespace.data} report-detail-records={reportDetailRecords}
+                                is-loaded={reportDetailRecordsLoaded} onnavigate={handleNavigation}
+                                oncopy={handleCopyToClipboard} onrefreshrecords={handleRefreshRecordsList}
+                                onspinnerchange={handleSpinnerChange} onopenreport={handleOpenReport}></c-dbm-list-view>
                         </div>
                     </template>
                     <template lwc:if={activePanelIs.datasetBuilder}>
                         <div class="datasetBuilderContainer">
                             <c-dbm-dataset-builder namespace={namespace.data} report-details={reportDetails}
-                                onreportdetailchange={handleReportDetailChange} onnavigate={handleNavigation} oncopy={handleCopyToClipboard} onrefreshrecords={handleRefreshRecordsList} onspinnerchange={handleSpinnerChange}></c-dbm-dataset-builder>
+                                onreportdetailchange={handleReportDetailChange} onnavigate={handleNavigation}
+                                oncopy={handleCopyToClipboard} onrefreshrecords={handleRefreshRecordsList}
+                                onspinnerchange={handleSpinnerChange}
+                                onopenreport={handleOpenReport}></c-dbm-dataset-builder>
                         </div>
                     </template>
                 </div>
             </div>
         </div>
     </div>
+
+    <template lwc:if={showHelpModal}>
+        <c-dbm-modal class="helpModal" header="Help" cancel-label="Close" hide-confirm oncancel={closeHelpModal}>
+            <template lwc:if={showFeedbackSpinner}>
+                <lightning-spinner></lightning-spinner>
+            </template>        
+            <div class="feedbackContainer slds-box">
+                <h3 class="slds-text-heading_small">Log Bug/Feedback</h3>
+                <template lwc:if={feedbackResult}>
+                    <p>{feedbackResult}</p>
+                    <div class="slds-text-align_center slds-p-top_xx-small">
+                        <lightning-button label="I have more feedback!" onclick={handleClearFeedbackResultClick}></lightning-button>
+                    </div>
+                </template>
+                <template lwc:else>
+                    <lightning-combobox label="Feedback Type" name="type" class="feedbackType"
+                        options={feedbackTypeOptions} required></lightning-combobox>
+                    <lightning-combobox label="Priority" name="priority" class="feedbackPriority"
+                        options={feedbackPriorityOptions} required></lightning-combobox>
+                    <lightning-textarea label="Comments" name="comments" class="feedbackComments"
+                        required></lightning-textarea>
+                    <lightning-input label="Would you like to be contacted regarding your feedback?" type="checkbox"
+                        class="feedbackResponse"></lightning-input>
+                    <div class="slds-text-align_center slds-p-top_xx-small">
+                        <lightning-button label="Submit Feedback"
+                            onclick={handleSubmitFeedbackClick}></lightning-button>
+                    </div>
+                </template>
+            </div>
+            <div class="helpResources slds-box slds-m-top_x-small">
+                <h3 class="slds-text-heading_small slds-p-bottom_xx-small">Help Resources</h3>
+                <ul>
+                    <li><a href={documentationLink} target="_blank">Documentation</a></li>
+                    <li><a href={slackChannelLink} target="_blank">Slack Channel</a></li>
+                    <li>Demo video - <i>coming soon</i></li>
+                </ul>
+            </div>
+        </c-dbm-modal>
+    </template>
 </template>

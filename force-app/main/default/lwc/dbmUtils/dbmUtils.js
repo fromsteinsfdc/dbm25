@@ -43,7 +43,8 @@ const EVENTS = {
     REPORT_DETAIL_CHANGE: 'reportdetailchange',    
     COPY_TO_CLIPBOARD: 'copy',
     REFRESH_RECORDS: 'refreshrecords',
-    SPINNER_CHANGE: 'spinnerchange',    
+    SPINNER_CHANGE: 'spinnerchange',
+    OPEN_REPORT: 'openreport',
     TARGETS: {
         LIST_VIEW: 'listView',
         DATASET_BUILDER: 'datasetBuilder'
@@ -123,7 +124,10 @@ const switchGroupings = (reportDetails) => {
     let tempGrouping = JSON.parse(JSON.stringify(reportDetails.groupings[0]));
     reportDetails.groupings[0] = JSON.parse(JSON.stringify(reportDetails.groupings[1]));
     reportDetails.groupings[1] = tempGrouping;
-    let datasets = reportDetails.data[0].map(row => []);
+    let datasets = [[]];
+    if (reportDetails.data.length) {
+        datasets = reportDetails.data[0].map(row => []);
+    }
     // console.log(`datasets = ${JSON.stringify(datasets)}`);
     reportDetails.data.forEach(row => {
         row.forEach((cell, colIndex) => {

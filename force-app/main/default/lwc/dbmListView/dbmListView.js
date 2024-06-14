@@ -182,9 +182,7 @@ export default class DbmListView extends LightningElement {
         if (!(rowIndex) >= 0 && this.selectedRowIndexes.length === 1) {
             rowIndex = this.selectedRowIndexes[0];
         }
-        // if (this.selectedRowIndexes.length === 1) {            
-        window.open('/' + this.tableRows[rowIndex].reportId, '_blank');
-        // }
+        this.dispatchEvent(new CustomEvent(EVENTS.OPEN_REPORT, { detail: this.tableRows[rowIndex].reportId }));
     }
 
     cloneReport(rowIndex) {
@@ -234,6 +232,7 @@ export default class DbmListView extends LightningElement {
                         message: `${length} report${plural} successfully deleted`,
                         variant: 'success',
                     });
+                    this.selectedRowIndexes = [];
                 })
                 .catch((errorMessage => {
                     console.log(`errorMessage = ${JSON.stringify(errorMessage)}`);

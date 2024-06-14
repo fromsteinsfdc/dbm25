@@ -30,11 +30,15 @@
                             alternative-text="Redo" onclick={handleRedoClick}
                             disabled={redoButtonDisabled}></lightning-button-icon>
                     </lightning-button-group>
-                    <lightning-button-icon icon-name="utility:new_window" class="slds-p-horizontal_xxx-small" disabled></lightning-button-icon>
+                    <lightning-button-icon icon-name="utility:new_window" class="slds-p-horizontal_xxx-small"
+                        tooltip="Open Report (in new window)" title="Open Report" alternative-text="Open Report"
+                        onclick={handleOpenReportClick} disabled={noReportId}></lightning-button-icon>
                 </div>
                 <div class="rightActions slds-float_right">
-                    <lightning-button label="Save As" class="slds-p-horizontal_xxx-small" onclick={handleSaveAsButtonClick} disabled={saveAsButtonDisabled}></lightning-button>
-                    <lightning-button label="Save" variant="brand" class="slds-p-horizontal_xxx-small" onclick={handleSaveButtonClick} disabled={saveButtonDisabled}></lightning-button>
+                    <lightning-button label="Save As" class="slds-p-horizontal_xxx-small"
+                        onclick={handleSaveAsButtonClick} disabled={noReportId}></lightning-button>
+                    <lightning-button label="Save" variant="brand" class="slds-p-horizontal_xxx-small"
+                        onclick={handleSaveButtonClick} disabled={saveButtonDisabled}></lightning-button>
                     <!-- <template lwc:if={reportDetails.reportId}>
                         <lightning-button icon-name="utility:new_window" label="Open Report" class="slds-p-left_xxx-small"></lightning-button>
                     </template>
@@ -132,7 +136,33 @@
         </c-dbm-modal>
     </template>
 
-    <template lwc:if={showErrorModal}>
-        We're sorry, something's gone wrong. But don't worry, the dataset you built isn't lost. You can copy your dataset and try again.
+    <template lwc:if={errorMessage}>
+        <c-dbm-modal oncancel={handleErrorModalCloseClick}>
+            <div class="modalHeader slds-modal__header slds-theme_error slds-theme_alert-texture" slot="header">
+                <h1 class="slds-modal__title slds-hyphenate">Error</h1>
+            </div>
+            <p class="slds-p-around_small">
+                We're sorry, something's gone wrong. But don't worry, the dataset you built isn't lost. You can copy
+                your dataset code and try again. Click on "Show Dataset Code" below to view and copy.
+            </p>
+            <p class="slds-p-around_small">
+                Error details: <code class="slds-theme_shade">{errorMessage}</code>
+            </p>
+            <lightning-accordion class="errorMessageAccordion" active-section-name="" allow-multiple-sections-open>
+                <lightning-accordion-section name="json" label="Show Dataset Code">
+                    <lightning-textarea value={reportDetailsString} class="errorTextArea"></lightning-textarea>
+                    <div class="slds-text-align_center slds-p-top_small">
+                    <lightning-button label="Copy" icon-name="utility:copy_to_clipboard" title="Copy"
+                        alternative-text="Copy Dataset Code" onclick={handleCopyToClipboardClick}></lightning-button>
+                    </div>
+                </lightning-accordion-section>
+            </lightning-accordion>
+            <div slot="footer">
+                <div class="slds-text-align_center">
+                    <lightning-button label="Ok" class="slds-p-around_x-small"
+                        onclick={handleErrorModalCloseClick}></lightning-button>
+                </div>
+            </div>
+        </c-dbm-modal>
     </template>
 </template>
