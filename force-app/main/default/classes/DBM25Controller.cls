@@ -29,6 +29,7 @@ public with sharing class DBM25Controller {
     // public static DescribeFieldResult grouping1UserFieldRes = DBM_Data_Entry__c.Grouping_1_User__c.getDescribe();
     // public static DescribeFieldResult grouping2UserFieldRes = DBM_Data_Entry__c.Grouping_2_User__c.getDescribe();
 
+    // I don't know if I'm doing this right, but I read that this is a way to reduce how often getGlobalDescribe needs to be called to improve performance
     public static Map<String, SObjectType> globalDescribe {
         get { 
             if (globalDescribe == null) {
@@ -38,6 +39,7 @@ public with sharing class DBM25Controller {
         }
     }
 
+    // Retrieves the package namespace, if applicable, and returns it for use in the LWCs
     @AuraEnabled(cacheable=true)
     public static String getPackageNamespace() {
         if (String.isBlank(packageNamespace)) {
@@ -77,7 +79,7 @@ public with sharing class DBM25Controller {
         try {
             return [SELECT Name, DeveloperName, NamespacePrefix FROM Folder WHERE Type = 'Report' AND DeveloperName != '' ORDER BY Name ASC];
         } catch (Exception e) {
-            System.debug('Error: '+ e.getMessage());
+            System.debug('Error fetching report folders: '+ e.getMessage());
             return null;
         }
     }
@@ -85,7 +87,7 @@ public with sharing class DBM25Controller {
     @AuraEnabled
     public static List<DBM_Report__c> getReportDetailRecords() {
         List<DBM_Report__c> reportDetailRecords = [SELECT 
-            Id, Name, Metric_Label__c, Metric_Type__c, Number_of_Groupings__c, Report_Folder_name__c, Report_ID__c, LastModifiedDate, 
+            Id, Name, Metric_Label__c, Metric_Type__c, Number_of_Groupings__c, Report_Folder_name__c, Report_ID__c, LastModifiedDate, CreatedDate,
             (SELECT Name, Id, Grouping_Number__c, Data_Source__c, Object_Name__c, Field_Name__c, Display_as_Link__c FROM DBM_Report_Groupings__r ORDER BY Grouping_Number__c ASC), 
             (SELECT Name, Id, Grouping__c, Grouping_Order__c, Record_ID__c, User__c FROM DBM_Report_Grouping_Entries__r ORDER BY Grouping_Order__c ASC),
             (SELECT Id, Name, Value__c, Grouping_1__c, Grouping_2__c FROM DBM_Data_Entries__r) 
@@ -148,6 +150,7 @@ public with sharing class DBM25Controller {
                 newGrouping.Object_Name__c = (String)groupingObject.get('objectName');
                 newGrouping.Field_Name__c = (String)groupingObject.get('fieldName');
                 newGrouping.Grouping_Number__c = (Integer)groupingObject.get('groupingNumber');
+                newGrouping.Enumerate_Entries__c = (Boolean)groupingObject.get('enumerate');
                 groupingEntryMap.put(newGrouping.Name, new List<DBM_Report_Grouping_Entry__C>());
                 newGroupings.add(newGrouping);
 
@@ -213,14 +216,11 @@ public with sharing class DBM25Controller {
             insert newDataEntries;
             
             returnMap.put('reportId', newReport.Id);
-            // returnMap.put('reportName', newReport.Name);
             returnMap.put('isSuccess', true);
         } catch (Exception e) {
             returnMap.put('errorMessage', e.getMessage());
             returnMap.put('isSuccess', false);
         }
-        // returnMap.put('message', returnString);
-        // returnMap.put('isSuccess', isSuccess);
         return returnMap;
     }
 
@@ -353,7 +353,7 @@ public with sharing class DBM25Controller {
     public static Map<String, Object> sendFeedback(String subject, String body) {
         Map<String, Object> response = new Map<String, Object>();
         Messaging.SingleEmailMessage email = new Messaging.SingleEmailMessage();
-        List<String> bodyElements = new List<String>{ body, '<br>' };
+        List<String> bodyElements = new List<String>{ body, '<br>LOG DATA:' };
         Map<String, String> bodyMap = new Map<String, String>();
         bodyMap.put('Username', UserInfo.getUserName());
         bodyMap.put('Email', UserInfo.getUserEmail());

@@ -1,9 +1,11 @@
+// TODO: add sort columns to list view
+
 import { LightningElement, api, wire, track } from 'lwc';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import LightningConfirm from 'lightning/confirm';
 
 import { EVENTS } from "c/dbmUtils";
-import getReportDetailRecords from '@salesforce/apex/DBM25Controller.getReportDetailRecords';
+// import getReportDetailRecords from '@salesforce/apex/DBM25Controller.getReportDetailRecords';
 import deleteReports from '@salesforce/apex/DBM25Controller.deleteReports';
 
 import REPORT_REPORTID_FIELD from "@salesforce/schema/DBM_Report__c.Report_ID__c";
@@ -13,6 +15,7 @@ const COLUMNS = [
     { label: 'Metric Name', fieldName: 'Metric_Label__c', type: 'text', sortable: true },
     { label: 'Metric Type', fieldName: 'Metric_Type__c', type: 'text', sortable: true },
     { label: 'Number of Groupings', fieldName: 'Number_of_Groupings__c', type: 'number', sortable: true },
+    { label: 'Created Date', fieldName: 'CreatedDate', type: 'date', sortable: true },
     { label: 'Last Modified Date', fieldName: 'LastModifiedDate', type: 'date', sortable: true },
 ];
 
@@ -21,7 +24,10 @@ const ACTION_TYPES = {
     SINGLE: 'singleRowAction',
 }
 
-const DEFAULT_SORT_DIRECTION = 'asc';
+const SORT_DIRECTIONS = {
+    ASCENDING: 'asc',
+    DESCENDING: 'desc'
+}
 
 export default class DbmListView extends LightningElement {
     @api
@@ -46,6 +52,7 @@ export default class DbmListView extends LightningElement {
 
 
     // @track tableRows = [];
+    @track columns = COLUMNS;
     @track reportDetailRecords = [];
     @track selectedRowIndexes = [];
     @track rowActions = [
@@ -67,9 +74,9 @@ export default class DbmListView extends LightningElement {
     }
     _showSpinner = false;
 
-    columns = COLUMNS;
-    sortDirection = DEFAULT_SORT_DIRECTION;
-    sortedBy;
+    // sortDirection = SORT_DIRECTIONS.DESCENDING;
+    sortAscending = false;
+    sortedBy = 'LastModifiedDate';
     numberOfSelectedRows = 0;
     searchTerm;
     isPending = false;
@@ -99,8 +106,14 @@ export default class DbmListView extends LightningElement {
         return this.tableRows.length && this.tableRows.every(row => row.isHidden);
     }
 
+    get sortIcon() {
+        return this.sortAscending ? 'utility:arrowup' : 'utility:arrowdown';
+        // return this.sortDirection = SORT_DIRECTIONS.ASCENDING ? 'utility:arrowup' : 'utility:arrowdown';
+    }
+
     /* LIFECYCLE HOOKS */
     connectedCallback() {
+        this.sortColumns();
     }
 
     /* ACTION FUNCTIONS */
@@ -197,7 +210,7 @@ export default class DbmListView extends LightningElement {
             [REPORT_REPORTID_FIELD.fieldApiName]: null,
             Name: `Copy of ${reportDetailRecord.Name}`
         }
-        
+
         const detail = {
             reportDetailRecord: clonedRecord,
             target: EVENTS.TARGETS.DATASET_BUILDER
@@ -250,16 +263,24 @@ export default class DbmListView extends LightningElement {
         }
     }
 
-    /* EVENT HANDLERS */
-    handleColumnSort(event) {
-        console.log(`in handleColumnSort: ${JSON.stringify(event.detail)}`);
-        const { fieldName: sortedBy, sortDirection } = event.detail;
-        const cloneData = [...this.reportDetailRecords];
-
-        cloneData.sort(this.sortBy(sortedBy, sortDirection === 'asc' ? 1 : -1));
+    sortColumns() {
+        this.columns.forEach(col => {
+            col.isSortedBy = col.fieldName === this.sortedBy;
+        })
+        let cloneData = [...this.reportDetailRecords];
+        cloneData.sort(this.sortFunction(this.sortedBy, this.sortAscending ? 1 : -1));
         this.reportDetailRecords = cloneData;
-        this.sortDirection = sortDirection;
-        this.sortedBy = sortedBy;
+    }
+
+    /* EVENT HANDLERS */
+    handleColumnSortClick(event) {
+        let newSortedBy = event.currentTarget.dataset.fieldName;
+        if (this.sortedBy === newSortedBy) {
+            this.sortAscending = !this.sortAscending;
+        } else {
+            this.sortedBy = newSortedBy;
+        }
+        this.sortColumns();
     }
 
     handleRowAction(event) {
@@ -300,7 +321,6 @@ export default class DbmListView extends LightningElement {
         this.dispatchEvent(new CustomEvent(EVENTS.NAVIGATE, { detail }));
     }
 
-
     handleRecordNameClick(event) {
         const reportDetailId = event.target.dataset.rowId;
         console.log(`reportDetailId = ${reportDetailId}`);
@@ -328,7 +348,7 @@ export default class DbmListView extends LightningElement {
         return str;
     }
 
-    sortBy(field, reverse, primer) {
+    sortFunction(field, reverse, primer) {
         const key = primer
             ? function (x) {
                 return primer(x[field]);

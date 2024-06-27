@@ -1,5 +1,7 @@
 import { LightningElement, wire, track } from 'lwc';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
+import { getRecord } from 'lightning/uiRecordApi';
+
 import { EVENTS, NAVIGATION, METRIC_NAMES, METRIC_TYPES, defaultReportDetails, transformConstantObject } from "c/dbmUtils";
 import getReportDetailRecords from '@salesforce/apex/DBM25Controller.getReportDetailRecords';
 import getPackageNamespace from '@salesforce/apex/DBM25Controller.getPackageNamespace';
@@ -33,6 +35,11 @@ import DATAENTRY_VALUE_FIELD from "@salesforce/schema/DBM_Data_Entry__c.Value__c
 import DATAENTRY_GROUPING1_FIELD from "@salesforce/schema/DBM_Data_Entry__c.Grouping_1__c";
 import DATAENTRY_GROUPING2_FIELD from "@salesforce/schema/DBM_Data_Entry__c.Grouping_2__c";
 
+import USER_ID from '@salesforce/user/Id';
+import USER_NAME from '@salesforce/schema/User.Name';
+import USER_EMAIL from '@salesforce/schema/User.Email';
+
+
 // Id, Name, Metric_Label__c, Metric_Type__c, Number_of_Groupings__c, Report_Folder_name__c, Report_ID__c, LastModifiedDate, 
 // (SELECT Name, Id, Data_Source__c, Object_Name__c, Field_Name__c, Display_as_Link__c FROM DBM_Report_Groupings__r), 
 // (SELECT Name, Id, Grouping__c, Grouping_Order__c, Record_ID__c FROM DBM_Report_Grouping_Entries__r),
@@ -62,6 +69,9 @@ const FEEDBACK_PRIORITY_OPTIONS = [
     { label: `Critical - It isn't working, I can't save/generate reports`, value: 'CRITICAL' },
 ];
 export default class DbmContainer extends LightningElement {
+    @wire(getRecord, { recordId: USER_ID, fields: [USER_NAME, USER_EMAIL] })
+    user;
+
     @wire(getPackageNamespace)
     namespace;
 
@@ -81,6 +91,7 @@ export default class DbmContainer extends LightningElement {
     showSpinner = false;
     showFeedbackSpinner = false;    
     showHelpModal = false;
+    showContactInfo = false;
 
     documentationLink = 'https://salesforce.quip.com/4iAgAXt6pK5u';
     slackChannelLink = 'https://salesforce.enterprise.slack.com/archives/C02JG9L59C3';
@@ -125,7 +136,7 @@ export default class DbmContainer extends LightningElement {
 
     closeHelpModal() {
         this.showHelpModal = false;
-        this.feedbackResult = null;
+        this.handleClearFeedbackResultClick();
     }
 
     /* EVENT HANDLERS */
@@ -187,24 +198,33 @@ export default class DbmContainer extends LightningElement {
         window.open('/' + event.detail, '_blank');
     }
 
-    async handleSubmitFeedbackClick() {
-        let feedbackType = this.template.querySelector('.feedbackType');
-        let feedbackPriority = this.template.querySelector('.feedbackPriority');
-        let feedbackComments = this.template.querySelector('.feedbackComments');
-        let isValid = feedbackType.reportValidity();
-        isValid = feedbackPriority.reportValidity() && isValid;
-        isValid = feedbackComments.reportValidity() && isValid;
+    handleFeedbackResponseChange() {
+        this.showContactInfo = !this.showContactInfo;
+    }
 
-        let feedbackResponse = this.template.querySelector('.feedbackResponse').checked;
+    async handleSubmitFeedbackClick() {
+        const feedbackFields = ['type', 'priority', 'comments', 'response', 'name', 'email'];
+        let feedback = {};
+        let isValid = true;
+        feedbackFields.forEach(field => {
+            console.log(`field name = feedback${field.charAt(0).toUpperCase() + field.slice(1)}}`);
+            let fieldEl = this.template.querySelector(`.feedback${field.charAt(0).toUpperCase() + field.slice(1)}`);
+            if (fieldEl) {
+                feedback[field] = fieldEl.value || fieldEl.checked;
+                isValid = fieldEl.reportValidity() && isValid;
+            }
+        })
         if (isValid) {
-            const subject = `Feedback — ${feedbackType.value} (${feedbackPriority.value} priority)`;
-            const body = (feedbackResponse ? 'RESPONSE REQUESTED<br>' : '') + feedbackComments.value;
+            const subject = `Feedback — ${feedback.type} (${feedback.priority} priority)`;
+            let responseRequestedBody = (feedback.response ? `RESPONSE REQUESTED<br>${(this.showContactInfo ? `${feedback.name} / ${feedback.email}<br>` : '')}<br>` : '')
+            const body = `${responseRequestedBody}COMMENTS:<br>${feedback.comments}`;
+            // const body = (feedback.response ? 'RESPONSE REQUESTED<br>' : '') + feedback.comments;
             this.showFeedbackSpinner = true;
             let response = await sendFeedback({ subject, body });
             if (response.isSuccess) {
-                this.feedbackResult = 'Thank you for your feedback!' + (feedbackResponse ? ' Someone will follow up with you shortly.' : '');
+                this.feedbackResult = 'Thank you for your feedback!' + (feedback.response ? ' Someone will follow up with you shortly.' : '');
             } else {
-                this.feedbackResult = 'Sorry, there was an error submitting your feedback. Please try again.';
+                this.feedbackResult = 'Sorry, there was an error submitting your feedback. Please try again, or contact David Fromstein directly.';
             }
             this.showFeedbackSpinner = false;            
         }
@@ -212,6 +232,7 @@ export default class DbmContainer extends LightningElement {
 
     handleClearFeedbackResultClick() {
         this.feedbackResult = null;
+        this.showContactInfo = false;
     }
 
     /* UTILITY FUNCTIONS */

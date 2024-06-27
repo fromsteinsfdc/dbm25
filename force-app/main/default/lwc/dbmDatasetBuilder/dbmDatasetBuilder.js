@@ -1,13 +1,14 @@
-// TODO: fix preview pane sizing
 // TODO: add Settings
-// TODO: add Help
-// TODO: finish post-save behaviour within LWC
 // TODO: figure out what to call "percent" metric type in the picklist (Percent, percent, percent-fixed, etc)
-// TODO (in progress): add email notifications
-// TODO (in progress): percent needs to be divided by 100
+// TODO: add chart to report
+// TODO: add status in toolbar
+// TODO (on hold): fix alphanumeric ordering
 // TODO (on hold): Add users to the report details object so images can be shown on screen
 // TODO (on hold): add option to display text options as links
 // TODO (on hold): make content pane components auto-focus on first element
+// TODO (on hold/complete?): finish post-save behaviour within LWC
+// TODO (complete, I think): percent needs to be divided by 100
+// TODO (complete??): fix preview pane sizing
 // TODO (complete): build list view
 // TODO (complete): set up timeout for error if PE never returns
 // TODO (complete): disable bulk add button for non-text options
@@ -16,7 +17,8 @@
 // TODO (complete): add re-ordering
 // TODO (complete): fix spinner not blocking builer header
 // TODO (complete): set final error message with copyable JSON
-
+// TODO (complete): add Help
+// TODO (complete): add email notifications
 
 import { LightningElement, track, api, wire } from 'lwc';
 import { subscribe, unsubscribe, onError, setDebugFlag, isEmpEnabled, } from 'lightning/empApi';
@@ -25,13 +27,10 @@ import LightningConfirm from 'lightning/confirm';
 import LightningAlert from 'lightning/alert';
 import LightningPrompt from 'lightning/prompt';
 import { EVENTS, METRIC_NAMES, PREVIEW_PANE_SIZES, defaultReportDetails, transformConstantObject } from "c/dbmUtils";
-// import getPackageNamespace from '@salesforce/apex/DBM25Controller.getPackageNamespace';
 import saveReportDetails from '@salesforce/apex/DBM25Controller.saveReportDetails';
 import createReport from '@salesforce/apex/DBM25Controller.createReport';
 import getReportFolders from '@salesforce/apex/DBM25Controller.getReportFolders';
 import sendFeedback from '@salesforce/apex/DBM25Controller.sendFeedback';
-
-const DUMMY_DATA_STRING = '[{"grouping":"Lorem","subgrouping":"Consectetur","value":115736,"groupingId":1650246140928,"isFirst":true,"id":"1650246140928"},{"grouping":"Lorem","subgrouping":"Adipiscing","value":88018,"groupingId":1650246140928,"isFirst":false,"id":"1650246140928"},{"grouping":"Lorem","subgrouping":"Eiusmod","value":122855,"groupingId":1650246140928,"isFirst":false,"id":"1650246140928"},{"grouping":"Lorem","subgrouping":"Tempor","value":62026,"groupingId":1650246140928,"isFirst":false,"id":"1650246140929"},{"grouping":"Ipsum","subgrouping":"Consectetur","value":33704,"groupingId":1650246144384,"isFirst":true,"id":"1650246144384"},{"grouping":"Ipsum","subgrouping":"Adipiscing","value":158166,"groupingId":1650246144384,"isFirst":false,"id":"1650246144385"},{"grouping":"Ipsum","subgrouping":"Eiusmod","value":102873,"groupingId":1650246144384,"isFirst":false,"id":"1650246144385"},{"grouping":"Ipsum","subgrouping":"Tempor","value":181465,"groupingId":1650246144384,"isFirst":false,"id":"1650246144385"},{"grouping":"Dolor","subgrouping":"Consectetur","value":16638,"groupingId":1650246149296,"isFirst":true,"id":"1650246149296"},{"grouping":"Dolor","subgrouping":"Adipiscing","value":12538,"groupingId":1650246149296,"isFirst":false,"id":"1650246149297"},{"grouping":"Dolor","subgrouping":"Eiusmod","value":88559,"groupingId":1650246149296,"isFirst":false,"id":"1650246149297"},{"grouping":"Dolor","subgrouping":"Tempor","value":88930,"groupingId":1650246149296,"isFirst":false,"id":"1650246149297"},{"grouping":"Sit","subgrouping":"Consectetur","value":58669,"groupingId":1650246153167,"isFirst":true,"id":"1650246153167"},{"grouping":"Sit","subgrouping":"Adipiscing","value":194768,"groupingId":1650246153167,"isFirst":false,"id":"1650246153167"},{"grouping":"Sit","subgrouping":"Eiusmod","value":24786,"groupingId":1650246153167,"isFirst":false,"id":"1650246153167"},{"grouping":"Sit","subgrouping":"Tempor","value":226838,"groupingId":1650246153167,"isFirst":false,"id":"1650246153168"},{"grouping":"Amet","subgrouping":"Consectetur","value":209758,"groupingId":1650246153539,"isFirst":true,"id":"1650246153539"},{"grouping":"Amet","subgrouping":"Adipiscing","value":7824,"groupingId":1650246153539,"isFirst":false,"id":"1650246153539"},{"grouping":"Amet","subgrouping":"Eiusmod","value":248899,"groupingId":1650246153539,"isFirst":false,"id":"1650246153539"},{"grouping":"Amet","subgrouping":"Tempor","value":169013,"groupingId":1650246153539,"isFirst":false,"id":"1650246153539"}]';
 
 // import DBMREPORT_OBJECT from "@salesforce/schema/DBM_Report__c";
 // import DBMREPORTGROUPING_OBJECT from "@salesforce/schema/DBM_Report_Grouping__c";
@@ -46,14 +45,10 @@ const PLATFORM_EVENT = {
     REPORT_ID_FIELD: 'Report_ID__c',
 }
 
+const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+
 const ERROR_WAIT = 15000;
-const DEBOUNCE_WAIT = 50;
-
 export default class DbmDatasetBuilder extends LightningElement {
-
-    // @wire(getPackageNamespace)
-    // namespace;
-    @api namespace;
     @api
     get reportDetails() {
         return this._reportDetails;
@@ -63,10 +58,9 @@ export default class DbmDatasetBuilder extends LightningElement {
     }
     _reportDetails;
 
-    // @api reportDetails;
+    @api namespace;
     @api changeLog = [];
     @api changeLogIndex = 0;
-    timer;
 
     @track reportFolders = [];
     subscription;   // Used for receiving Platform Event
@@ -83,14 +77,11 @@ export default class DbmDatasetBuilder extends LightningElement {
     previewPaneSizes = [0, 25, 50];
     previewPaneIndex = 1;
     metricNames = transformConstantObject(METRIC_NAMES);
-    // showSubmitModal = false;
     showImportModal = false;
 
     defaultReportDetails = { ...this.processReportDetails(defaultReportDetails()) };
     initialReportDetails;
 
-    showConfirm = false;
-    // saveSubmitted = false;
     saveSuccessful;
     errorMessage;
 
@@ -115,9 +106,6 @@ export default class DbmDatasetBuilder extends LightningElement {
             [this.currentStep.value]: true
         }
     }
-    // get isFinalStep() {
-    //     return this.currentStepIndex === this.builderSteps.length;
-    // }
 
     get currentBuilderStepComponent() {
         return this.template.querySelector('.contentPane *');
@@ -135,19 +123,12 @@ export default class DbmDatasetBuilder extends LightningElement {
         return null;
     }
 
-    // get nextButton() {
-    //     return {
-    //         label: 'Next',
-    //         isDisabled: this.currentStepIndex === this.builderSteps.length - 1,
-    //     }
-    // }
-
     get nextButtonDisabled() {
         return this.currentStepIndex === this.builderSteps.length - 1;
     }
 
     get backButtonDisabled() {
-        return this.currentStepIndex === 0 || this.showSpinner || this.showConfirm;
+        return this.currentStepIndex === 0;
     }
 
     get undoButtonDisabled() {
@@ -234,7 +215,6 @@ export default class DbmDatasetBuilder extends LightningElement {
             this.template.querySelector('.previewPane').addEventListener("transitionend", () => {
                 this.resizePreview();
             });
-
         }
     }
 
@@ -242,6 +222,7 @@ export default class DbmDatasetBuilder extends LightningElement {
     resetBuilder() {
         this.reportDetails = { ...this.defaultReportDetails };
         this.currentStepIndex = 0;
+        this.saveSuccessful = null;
         this.resetChangeLog();
         this.getReportFolders();
     }
@@ -264,8 +245,17 @@ export default class DbmDatasetBuilder extends LightningElement {
                     return row.map(cell => cell === null ? 0 : cell);
                 })
             }
-            // console.log(`reportDetails = ${JSON.stringify(this.reportDetails)}`);
-            // console.log(`about to call Apex`);
+
+            // this.reportDetails.groupings.forEach(grouping => {
+            //     if (grouping.enumerate) {
+            //         grouping.entries.forEach(entry => {
+            //             // entry.value = `${entry.number}. ${entry.value}`
+            //             entry.value = `${entry.letter}. ${entry.value}`
+            //         })
+            //         grouping.enumerate = false;
+            //     }
+            // })
+
             this.reportDetails = this.reportDetails;    // Necessary for some edge-case last minute display changes to appear
             let saveResponse = await saveReportDetails({ reportDetailsString: this.reportDetailsString });
             // console.log(`saveResponse = ${JSON.stringify(saveResponse)}`);
@@ -278,8 +268,7 @@ export default class DbmDatasetBuilder extends LightningElement {
             let errorMessage = 'There was an unknown error saving your report.';
             if (error.body?.pageErrors?.length) {
                 errorMessage = `${error.body.pageErrors[0].message}. Code = ${error.body.pageErrors[0].statusCode}`;
-
-            } else if (error.body.message) {
+            } else if (error.body?.message) {
                 errorMessage = `${error.body.message}.`;
                 if (error.body.exceptionType) {
                     errorMessage += ` Code = ${error.body.exceptionType}.`;
@@ -295,6 +284,7 @@ export default class DbmDatasetBuilder extends LightningElement {
     async generateReportMetadata() {
         await createReport({ reportDetailsRecordId: this.reportDetails.id });
         setTimeout(() => {
+            console.log(`timeout hit, saveSuccessful = ${this.saveSuccessful}, errorMessage = ${this.errorMessage}`);
             if (!this.saveSuccessful && !this.errorMessage) {
                 this.processSaveResult(`Unknown error, server request timed out while generating report`);
             }
@@ -320,10 +310,19 @@ export default class DbmDatasetBuilder extends LightningElement {
             };
 
             grouping.groupingNumber = (Number(index) + 1);
+            grouping.enumerateClass = grouping.enumerate ? 'brand' : 'neutral';            
             grouping.inputLabel = 'Enter Name for Grouping #' + (Number(index) + 1);
 
             // Update isDisabled
             grouping.isDisabled = index >= Number(reportDetails.numGroupings)
+
+            // grouping.entries.forEach((entry, index) => {
+            //     entry.number = Number(index) + 1;
+            //     entry.letter = ALPHABET.charAt(index);
+            //     if (index > ALPHABET.length-1) {
+            //         entry.letter = ALPHABET.charAt(ALPHABET.length-1) + (1 + index - ALPHABET.length);
+            //     }
+            // })
         });
         return reportDetails;
     }
@@ -353,35 +352,32 @@ export default class DbmDatasetBuilder extends LightningElement {
     }
 
     processSaveResult(errorMessage) {
+        // console.log(`in processSaveResult, errorMessage = ${errorMessage}`);
         if (errorMessage) {
             this.saveSuccessful = false;
             this.errorMessage = errorMessage;
-            // const toast = new ShowToastEvent({
-            //     title: 'Something Went Wrong',
-            //     message: errorMessage,
-            //     variant: 'error',
-            //     mode: 'sticky'
-            // });
-            // this.dispatchEvent(toast);
             sendFeedback({ subject: 'Failure', body: errorMessage });
         } else {
             this.dispatchEvent(new CustomEvent(EVENTS.REFRESH_RECORDS));
             this.saveSuccessful = true;
-            // this.currentStepIndex++;
+            let successVerb = 'updated';
+            // Only send feedback the first time the report is saved (meaning it has no initial ID), not on every edit
+            if (!this.initialReportDetails.id) {
+                successVerb = 'created';
+                sendFeedback({ subject: 'Success', body: this.reportDetailsString });                
+            }
             this.resetChangeLog();
             const toast = new ShowToastEvent({
                 title: 'Success',
-                message: `Your report has been successfully generated`,
+                message: `Your report has been successfully ${successVerb}`,
                 variant: 'success',
             });
             this.dispatchEvent(toast);
-            sendFeedback({ subject: 'Success', body: this.reportDetails });
         }
         this.showSpinner = false;
     }
 
     dispatchReportDetails() {
-        // this.processReportDetails();
         this.dispatchEvent(new CustomEvent(EVENTS.REPORT_DETAIL_CHANGE, { detail: this.processReportDetails(this.reportDetails) }));
     }
 
@@ -396,8 +392,6 @@ export default class DbmDatasetBuilder extends LightningElement {
                 importedDetails.reportId = null;
             }
             this.updateReportDetails(importedDetails);
-            // this.reportDetails = this.processReportDetails(JSON.parse(importModal.value));
-            // this.processReportDetails();
         }
         this.closeImportModal();
     }
@@ -442,14 +436,7 @@ export default class DbmDatasetBuilder extends LightningElement {
     handleNextButtonClick(event) {
         let isValid = this.currentBuilderStepComponent.validate();
         if (isValid) {
-            // if (this.showConfirm) {
-            //     this.saveReportDetails();
-            // } else if (this.isFinalStep) {
-            //     // event.target.disabled = true;
-            //     this.showConfirm = true;
-            // } else {
             this.currentStepIndex++;
-            // }
         }
     }
 
@@ -467,7 +454,6 @@ export default class DbmDatasetBuilder extends LightningElement {
 
     // If the user has clicked their mouse in the `data` component and not on a cell or header, clear the selection
     handleContentPaneMouseUp() {
-        // console.log(`in dbmDatasetBuilder handleContentPaneMouseUp`);
         let dataCmp = this.template.querySelector('c-dbm-dataset-data');
         if (dataCmp && !dataCmp.preventClearSelection()) {
             dataCmp.unselectSelectedElements();
@@ -502,12 +488,6 @@ export default class DbmDatasetBuilder extends LightningElement {
         }
     }
 
-    // async handleGenerateReportClick() {
-    //     console.log(`in handleGenerateReportClick`);
-    //     let result = await createReport();
-    //     console.log(`result = ${JSON.stringify(result)}`);
-    // }
-
     handleCopyToClipboardClick() {
         console.log(`in handleCopyToClipboardClick, about to dispatch ${EVENTS.COPY_TO_CLIPBOARD}`);
         const detail = {
@@ -521,52 +501,26 @@ export default class DbmDatasetBuilder extends LightningElement {
     }
 
     handlePlatformEventReceipt(response) {
-        console.log(`platform event received: ${JSON.stringify(response)}`);
         const payload = response.data.payload;
         const errorMessage = payload[this.prependNamespace(PLATFORM_EVENT.MESSAGE_FIELD)];
         const reportId = payload[this.prependNamespace(PLATFORM_EVENT.REPORT_ID_FIELD)];
         const isSuccess = payload[this.prependNamespace(PLATFORM_EVENT.SUCCESS_FIELD)];
-        console.log(`PLATFORM_EVENT.MESSAGE_FIELD in payload = ${this.prependNamespace(PLATFORM_EVENT.MESSAGE_FIELD) in payload}`);
-        console.log(`errorMessage = ${errorMessage}`);
         if (isSuccess) {
             this.reportDetails.reportId = reportId;
             this.processSaveResult();
         } else {
             this.processSaveResult(errorMessage);
         }
-
-        /*
-        let success = false;
-        
-        if (PLATFORM_EVENT.SUCCESS_FIELD in payload) {
-            console.log(`${PLATFORM_EVENT.SUCCESS_FIELD} is in payload, so setting success to ${payload[PLATFORM_EVENT.SUCCESS_FIELD]}`);
-            success = payload[PLATFORM_EVENT.SUCCESS_FIELD];
-        } else if (`${NAMESPACE}__${PLATFORM_EVENT.SUCCESS_FIELD}` in payload) {
-            success = payload[`${NAMESPACE}__${PLATFORM_EVENT.SUCCESS_FIELD}`];
-        } else {
-            console.log(`not found in payload, so success stays false`);
-        }
-
-        if (PLATFORM_EVENT.SUCCESS_FIELD in payload || `${NAMESPACE}__${PLATFORM_EVENT.SUCCESS_FIELD}` in payload) {
-            // this.processSaveResult(payload[PLATFORM_EVENT.SUCCESS_FIELD])
-            this.processSaveResult(success)
-        }
-        */
     }
 
     handleUndoClick() {
         this.changeLogIndex--;
-        // console.log(JSON.stringify(this.changeLog[this.changeLogIndex]));
-        // this.reportDetails = this.changeLog[this.changeLogIndex];
-        // this.dispatchReportDetails();
         this.updateReportDetails(this.changeLog[this.changeLogIndex], false);
     }
 
     handleRedoClick() {
         this.changeLogIndex++;
         this.updateReportDetails(this.changeLog[this.changeLogIndex], false);
-        // this.reportDetails = this.changeLog[this.changeLogIndex];
-        // this.dispatchReportDetails();
     }
 
     handleOpenReportClick() {
@@ -576,16 +530,6 @@ export default class DbmDatasetBuilder extends LightningElement {
     handleErrorModalCloseClick() {
         this.errorMessage = null;
     }
-
-    /*
-    handleSubmitModalCancelClick() {
-        this.showSubmitModal = false;
-    }
-
-    handleSubmitModalSaveClick() {
-        this.saveReportDetails();
-    }
-    */
 
     /* UTILITY FUNCTIONS */
     @api

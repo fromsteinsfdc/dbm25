@@ -88,8 +88,12 @@
                         options={feedbackPriorityOptions} required></lightning-combobox>
                     <lightning-textarea label="Comments" name="comments" class="feedbackComments"
                         required></lightning-textarea>
-                    <lightning-input label="Would you like to be contacted regarding your feedback?" type="checkbox"
-                        class="feedbackResponse"></lightning-input>
+                    <lightning-input label="I would like to be contacted regarding my feedback" type="checkbox"
+                        class="feedbackResponse" onchange={handleFeedbackResponseChange}></lightning-input>
+                    <template lwc:if={showContactInfo}>
+                        <lightning-input label="Your Name" class="feedbackName" required value={user.data.fields.Name.value}></lightning-input>
+                        <lightning-input label="Your Email" type="email" class="feedbackEmail" required value={user.data.fields.Email.value}></lightning-input>
+                    </template>
                     <div class="slds-text-align_center slds-p-top_xx-small">
                         <lightning-button label="Submit Feedback"
                             onclick={handleSubmitFeedbackClick}></lightning-button>

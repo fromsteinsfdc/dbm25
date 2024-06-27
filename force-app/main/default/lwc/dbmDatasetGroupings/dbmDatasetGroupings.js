@@ -11,6 +11,8 @@ const CLASSES = {
     VISIBLE_INDICATOR: 'visible',
     DRAGGING: 'dragging',
 }
+
+const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 export default class DbmDatasetGroupings extends LightningElement {
 
     @api
@@ -162,6 +164,25 @@ export default class DbmDatasetGroupings extends LightningElement {
         this.dispatchDetails();
     }
 
+    addEnumerations(groupingIndex) {
+        let grouping = this.reportDetails.grouping[groupingIndex];
+        grouping.entries.forEach((entry, index) => {
+            // entry.number = Number(index) + 1;
+            let letter = ALPHABET.charAt(index);
+            if (index > ALPHABET.length-1) {
+                letter = ALPHABET.charAt(ALPHABET.length-1) + (1 + index - ALPHABET.length);
+            }
+            entry.value = `${letter}. ${entry.value}`;
+        })
+    }
+
+    removeEnumerations(groupingIndex) {
+        let grouping = this.reportDetails.grouping[groupingIndex];
+        grouping.entries.forEach((entry, index) => {
+            
+        });
+    }
+
     /* EVENT HANDLERS */
     handleAddEntryClick(event) {
         let index = Number(event.target.dataset.index);
@@ -192,8 +213,8 @@ export default class DbmDatasetGroupings extends LightningElement {
     }
 
     handleBulkAddClick(event) {
-        this.showBulkAddModal = true;
         this.bulkAddGroupingIndex = Number(event.target.dataset.index);
+        this.showBulkAddModal = true;
     }
 
     handleBulkAddModalKeydown(event) {
@@ -217,6 +238,20 @@ export default class DbmDatasetGroupings extends LightningElement {
             this.removeEntry(this.bulkAddGroupingIndex, 0);
         }
         this.closeBulkAddModal();
+        this.dispatchDetails();
+    }
+
+    handleGroupingNumberClick(event) {
+        // const index = Number(event.target.dataset.index);
+        // this.reportDetails.groupings[index].enumerate = !this.reportDetails.groupings[index].enumerate;
+        let eventData = this.getDataFromEvent(event);
+        eventData.grouping.enumerate = !eventData.grouping.enumerate;
+        // console.log('about to dispatch handleGroupingNumberClick');
+        if (eventData.grouping.enumerate) {
+            this.addEnumerations(eventData.groupingIndex);
+        } else {
+            this.removeEnumerations(eventData.groupingIndex);
+        }
         this.dispatchDetails();
     }
 
