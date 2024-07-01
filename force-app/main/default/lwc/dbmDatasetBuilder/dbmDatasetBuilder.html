@@ -101,7 +101,7 @@
                     <lightning-button-icon class="previewShrinkButton" icon-name="utility:right" variant="bare"
                         size="medium" tooltip="Shrink preview" title="Shrink preview"
                         onclick={handlePreviewShrinkClick}></lightning-button-icon>
-                    <c-dbm-preview report-details={reportDetails}></c-dbm-preview>
+                    <c-dbm-preview report-details={reportDetails} onreportdetailchange={handleReportDetailChange}></c-dbm-preview>
                 </template>
             </div>
         </div>

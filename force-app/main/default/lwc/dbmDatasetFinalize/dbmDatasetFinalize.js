@@ -11,18 +11,8 @@ export default class DbmDatasetFinalize extends LightningElement {
     }
     _reportDetails;
     @api foldersList = [];
-    /*
-    get foldersList() {
-        return this._foldersList || [];
-    }
-    set foldersList(value) {
-        this._foldersList = value;
-    }
-    _foldersList = [];
-    */
 
     get folderOptions() {
-        console.log(`folderoptions = ${JSON.stringify(this.foldersList)}`);
         let options = this.foldersList.map(folder => {
             return {
                 label: folder.Name,
@@ -40,7 +30,6 @@ export default class DbmDatasetFinalize extends LightningElement {
 
     /* EVENT HANDLERS */
     handleReportDetailChange(event) {
-        console.log(`in dbmDatasetFinalize, ${event.target.name}/${event.detail.value}`)
         this.reportDetails[event.target.name] = event.detail.value;
         this.dispatchDetails();
     }

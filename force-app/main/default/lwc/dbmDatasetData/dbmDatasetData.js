@@ -187,7 +187,7 @@ export default class DbmDatasetData extends LightningElement {
         }
     }
     handleCellValueChange(event) {
-        console.log(`${event.target.value}, ${typeof event.target.value}`);
+        // console.log(`${event.target.value}, ${typeof event.target.value}`);
         let rowIndex = event.target.dataset.rowIndex;
         let colIndex = event.target.dataset.colIndex;
         let value = event.target.value;        
@@ -243,7 +243,7 @@ export default class DbmDatasetData extends LightningElement {
     }
 
     handleCellFocus(event) {
-        console.log(`focusing on cell ${event.target.dataset.colIndex}/${event.target.dataset.rowIndex}`);
+        // console.log(`focusing on cell ${event.target.dataset.colIndex}/${event.target.dataset.rowIndex}`);
     }
 
     // handleCellMouseUp(event) {

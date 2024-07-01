@@ -1,4 +1,5 @@
 <template>
+    <!--  class="slds-grid slds-wrap listViewContainer" -->
     <section>
         <!-- <template lwc:if={showSpinner}>
             <lightning-spinner></lightning-spinner>
@@ -6,8 +7,8 @@
         </template> -->
         <!-- <template lwc:else> -->
         <!-- <template lwc:if={tableRows.length}> -->
-        <div class="tableActions slds-p-vertical_small slds-clearfix">
-            <div class="slds-float_left">
+        <div class="tableActions slds-grid slds-p-vertical_small">
+            <div class="slds-col">
                 <lightning-button label="New Dataset" onclick={handleNewDatasetClick}
                     class="slds-p-horizontal_xx-small"></lightning-button>
                 <template for:each={updatedActions} for:item="action">
@@ -16,9 +17,15 @@
                         title={action.title} key={action.name} onclick={action.onclick}></lightning-button-icon>
                 </template>
             </div>
-            <lightning-input type="search" placeholder="Type to filter list"
-                class="slds-p-horizontal_xx-small slds-float_right" variant="label-hidden"
-                onchange={handleSearchChange}></lightning-input>
+            <div class="slds-col">
+                <div class="slds-float_right slds-grid">
+                    <lightning-button-icon icon-name="utility:refresh" tooltip="Refresh List"
+                        alternative-text="Refresh List" title="Refresh"
+                        onclick={handleRefreshRecordsClick}></lightning-button-icon>
+                    <lightning-input type="search" placeholder="Type to filter list" class="slds-p-horizontal_xx-small"
+                        variant="label-hidden" onchange={handleSearchChange}></lightning-input>
+                </div>
+            </div>
         </div>
         <table class="slds-table slds-table_cell-buffer slds-table_bordered"
             aria-labelledby="element-with-table-label other-element-with-table-label">
@@ -29,7 +36,8 @@
                             onchange={handleSelectAllChange}></lightning-input>
                     </th>
                     <template for:each={columns} for:item="col">
-                        <th scope="col" key={col.fieldName} data-is-sorted-by={col.isSortedBy} class="columnHeader" data-field-name={col.fieldName} onclick={handleColumnSortClick}>
+                        <th scope="col" key={col.fieldName} data-is-sorted-by={col.isSortedBy} class="columnHeader"
+                            data-field-name={col.fieldName} onclick={handleColumnSortClick}>
                             <a class="slds-th__action slds-text-link_reset" href="#" role="button" tabindex="0">
                                 <span class="slds-assistive-text">Sort by: </span>
                                 <div class="slds-grid slds-grid_vertical-align-center slds-has-flexi-truncate">

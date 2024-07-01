@@ -1,3 +1,7 @@
+.listViewContainer {
+    width: 100%;
+}
+
 .sortIcon {
     visibility: hidden;
 }

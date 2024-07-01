@@ -45,6 +45,11 @@ const PLATFORM_EVENT = {
     REPORT_ID_FIELD: 'Report_ID__c',
 }
 
+const SAVE_STATUSES = {
+    FAILURE: 'fail',
+    SUCCESS: 'success',
+}
+
 const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
 const ERROR_WAIT = 15000;
@@ -78,11 +83,13 @@ export default class DbmDatasetBuilder extends LightningElement {
     previewPaneIndex = 1;
     metricNames = transformConstantObject(METRIC_NAMES);
     showImportModal = false;
+    finalizeFlag = false;   // Flag set to true the first time the user hits the Finalize stage, which unlocks the save button
 
     defaultReportDetails = { ...this.processReportDetails(defaultReportDetails()) };
     initialReportDetails;
 
     saveSuccessful;
+    saveStatus;
     errorMessage;
 
     /* Manage the various steps of the builder */
@@ -124,7 +131,7 @@ export default class DbmDatasetBuilder extends LightningElement {
     }
 
     get nextButtonDisabled() {
-        return this.currentStepIndex === this.builderSteps.length - 1;
+        return this.currentStepIndex >= this.builderSteps.length - 1;
     }
 
     get backButtonDisabled() {
@@ -144,7 +151,7 @@ export default class DbmDatasetBuilder extends LightningElement {
     }
 
     get saveButtonDisabled() {
-        return !this.isChanged;
+        return (!(this.isChanged && (this.finalizeFlag || this.reportDetails.id))) && !this.reportDetails.isClone;
     }
 
     get noReportId() {
@@ -193,7 +200,7 @@ export default class DbmDatasetBuilder extends LightningElement {
 
     /* LIFECYCLE HOOKS */
     connectedCallback() {
-        console.log(`in dbmDatasetBuilder, reportDetails = ${this.reportDetailsString}`);
+        // console.log(`in dbmDatasetBuilder, reportDetails = ${this.reportDetailsString}`);
         // If report details are not already defined, start with a default template
         if (!this.reportDetails) {
             this.reportDetails = { ...this.defaultReportDetails };
@@ -223,6 +230,7 @@ export default class DbmDatasetBuilder extends LightningElement {
         this.reportDetails = { ...this.defaultReportDetails };
         this.currentStepIndex = 0;
         this.saveSuccessful = null;
+        this.saveStatus = null;
         this.resetChangeLog();
         this.getReportFolders();
     }
@@ -234,11 +242,10 @@ export default class DbmDatasetBuilder extends LightningElement {
     }
 
     async saveReportDetails() {
-        console.log(`in saveReportDetails`);
+        // console.log(`in saveReportDetails`);
         try {
-
-            // this.saveSubmitted = true;
             this.showSpinner = true;
+            this.saveStatus = null;
             // Process blank values into zeroes, if specified
             if (this.reportDetails.saveBlanksAsZeroes) {
                 this.reportDetails.data = this.reportDetails.data.map(row => {
@@ -258,11 +265,14 @@ export default class DbmDatasetBuilder extends LightningElement {
 
             this.reportDetails = this.reportDetails;    // Necessary for some edge-case last minute display changes to appear
             let saveResponse = await saveReportDetails({ reportDetailsString: this.reportDetailsString });
-            // console.log(`saveResponse = ${JSON.stringify(saveResponse)}`);
-            this.reportDetails.id = saveResponse.reportId;
-            // this.reportDetails.reportName = saveResponse.reportName;
-            this.dispatchReportDetails();
-            this.generateReportMetadata();
+            console.log(`saveResponse = ${JSON.stringify(saveResponse)}`);
+            if (saveResponse.errorMessage) {
+                this.processSaveResult(saveResponse.errorMessage);
+            } else {
+                this.reportDetails.id = saveResponse.reportId;
+                this.dispatchReportDetails();
+                this.generateReportMetadata();
+            }
         } catch (error) {
             console.log(`Error saving report: ${JSON.stringify(error)}`);
             let errorMessage = 'There was an unknown error saving your report.';
@@ -284,8 +294,9 @@ export default class DbmDatasetBuilder extends LightningElement {
     async generateReportMetadata() {
         await createReport({ reportDetailsRecordId: this.reportDetails.id });
         setTimeout(() => {
-            console.log(`timeout hit, saveSuccessful = ${this.saveSuccessful}, errorMessage = ${this.errorMessage}`);
-            if (!this.saveSuccessful && !this.errorMessage) {
+            // console.log(`timeout hit, saveSuccessful = ${this.saveSuccessful}, errorMessage = ${this.errorMessage}`);
+            // if (!this.saveSuccessful && !this.errorMessage) {
+            if (!this.saveStatus && !this.errorMessage) {
                 this.processSaveResult(`Unknown error, server request timed out while generating report`);
             }
         }, ERROR_WAIT);
@@ -310,7 +321,7 @@ export default class DbmDatasetBuilder extends LightningElement {
             };
 
             grouping.groupingNumber = (Number(index) + 1);
-            grouping.enumerateClass = grouping.enumerate ? 'brand' : 'neutral';            
+            grouping.enumerateClass = grouping.enumerate ? 'brand' : 'neutral';
             grouping.inputLabel = 'Enter Name for Grouping #' + (Number(index) + 1);
 
             // Update isDisabled
@@ -329,9 +340,9 @@ export default class DbmDatasetBuilder extends LightningElement {
 
     updateReportDetails(reportDetails, updateChangeLog = true) {
         let newProcessedReportDetails = this.processReportDetails(reportDetails);
-        console.log(`in dbmDatasetBuilder updateReportDetails, reportDetails = ${JSON.stringify(newProcessedReportDetails)}`);
+        // console.log(`in dbmDatasetBuilder updateReportDetails, reportDetails = ${JSON.stringify(newProcessedReportDetails)}`);
         let reportDetailsChanged = this.reportDetailsString !== JSON.stringify(newProcessedReportDetails);
-        console.log(`reportDetailsChanged = ${reportDetailsChanged}`);
+        // console.log(`reportDetailsChanged = ${reportDetailsChanged}`);
         if (reportDetailsChanged) {
             this.reportDetails = newProcessedReportDetails;
             this.dispatchReportDetails();
@@ -355,16 +366,19 @@ export default class DbmDatasetBuilder extends LightningElement {
         // console.log(`in processSaveResult, errorMessage = ${errorMessage}`);
         if (errorMessage) {
             this.saveSuccessful = false;
+            this.saveStatus = SAVE_STATUSES.FAILURE;
             this.errorMessage = errorMessage;
             sendFeedback({ subject: 'Failure', body: errorMessage });
         } else {
             this.dispatchEvent(new CustomEvent(EVENTS.REFRESH_RECORDS));
             this.saveSuccessful = true;
+            this.saveStatus = SAVE_STATUSES.SUCCESS;
             let successVerb = 'updated';
             // Only send feedback the first time the report is saved (meaning it has no initial ID), not on every edit
             if (!this.initialReportDetails.id) {
                 successVerb = 'created';
-                sendFeedback({ subject: 'Success', body: this.reportDetailsString });                
+                sendFeedback({ subject: 'Success', body: this.reportDetailsString });
+                this.currentStepIndex = this.builderSteps.length;   // If the report is newly created, navigate to the success screen. Only shown on initial save.
             }
             this.resetChangeLog();
             const toast = new ShowToastEvent({
@@ -391,6 +405,7 @@ export default class DbmDatasetBuilder extends LightningElement {
             if (this.reportDetails.reportId !== importedDetails.reportId) {
                 importedDetails.reportId = null;
             }
+            importedDetails.isClone = true;
             this.updateReportDetails(importedDetails);
         }
         this.closeImportModal();
@@ -437,6 +452,9 @@ export default class DbmDatasetBuilder extends LightningElement {
         let isValid = this.currentBuilderStepComponent.validate();
         if (isValid) {
             this.currentStepIndex++;
+            if (this.currentStep.value === 'finalize') {
+                this.finalizeFlag = true;
+            }
         }
     }
 
@@ -461,7 +479,7 @@ export default class DbmDatasetBuilder extends LightningElement {
     }
 
     async handleSaveButtonClick() {
-        console.log(`in handleSaveButtonClick`);
+        // console.log(`in handleSaveButtonClick`);
         if (await this.validateSave()) {
             this.saveReportDetails();
         }
@@ -475,21 +493,21 @@ export default class DbmDatasetBuilder extends LightningElement {
                 defaultValue: `${this.reportDetails.reportName} copy`
             });
             if (newName) {
-                console.log(`going to clone ${newName}`);
+                // console.log(`going to clone ${newName}`);
                 this.reportDetails.reportName = newName;
                 this.reportDetails.id = null;
                 this.reportDetails.reportId = null;
-                console.log(`clone reportDetails = ${this.reportDetailsString}`);
+                // console.log(`clone reportDetails = ${this.reportDetailsString}`);
                 // this.dispatchReportDetails();
                 this.saveReportDetails();
             } else {
-                console.log(`no clone for you!`);
+                // console.log(`no clone for you!`);
             }
         }
     }
 
     handleCopyToClipboardClick() {
-        console.log(`in handleCopyToClipboardClick, about to dispatch ${EVENTS.COPY_TO_CLIPBOARD}`);
+        // console.log(`in handleCopyToClipboardClick, about to dispatch ${EVENTS.COPY_TO_CLIPBOARD}`);
         const detail = {
             string: this.reportDetailsString
         };

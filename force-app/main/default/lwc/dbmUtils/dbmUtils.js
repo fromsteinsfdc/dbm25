@@ -51,14 +51,6 @@ const EVENTS = {
     }
 }
 
-const NAVIGATION = {
-    EVENT_NAME: 'navigate',
-    TARGETS: {
-        LIST_VIEW: 'listView',
-        DATASET_BUILDER: 'datasetBuilder'
-    }
-}
-
 const CHART_TYPES = [
     { label: 'Vertical Bar Chart', style: 'bar', name: 'vbar', multiGroupings: [true, false] },
     { label: 'Stacked Vertical Bar Chart', style: 'bar', name: 'stackvbar', multiGroupings: [true] },
@@ -94,15 +86,11 @@ const defaultReportDetails = () => {
     let reportDetails = {
         maxNumGroupings: MAX_NUM_GROUPINGS,
         numGroupings: '1',
-        // metric: {
-        //     typeValue: transformConstantObject(METRIC_TYPES).default.value,
-        //     metricName: transformConstantObject(METRIC_NAMES).default.value,
-        //     isCustom: false,
-        // }
         metricType: transformConstantObject(METRIC_TYPES).default.value,
         metricName: transformConstantObject(METRIC_NAMES).default.value,
         groupings: [],
         data: [[null]],
+        chartType: CHART_TYPES[0].name
     }
     for (let i = 0; i < MAX_NUM_GROUPINGS; i++) {
         reportDetails.groupings.push(newGrouping(i));
@@ -165,4 +153,4 @@ const transformConstantObject = (constant) => {
     }
 }
 
-export { NAMESPACE, PREVIEW_PANE_SIZES, METRIC_TYPES, METRIC_NAMES, NUM_GROUPINGS_OPTIONS, DATA_SOURCE_OPTIONS, NAVIGATION, EVENTS, CHART_TYPES, CHART_COLOURS, VALIDATEABLE_COMPONENTS, KEYS, defaultReportDetails, newGrouping, switchGroupings, validate, transformConstantObject };
+export { NAMESPACE, PREVIEW_PANE_SIZES, METRIC_TYPES, METRIC_NAMES, NUM_GROUPINGS_OPTIONS, DATA_SOURCE_OPTIONS, EVENTS, CHART_TYPES, CHART_COLOURS, VALIDATEABLE_COMPONENTS, KEYS, defaultReportDetails, newGrouping, switchGroupings, validate, transformConstantObject };

@@ -1,5 +1,5 @@
 import { LightningElement, api, track } from 'lwc';
-import { METRIC_TYPES, CHART_TYPES, CHART_COLOURS, switchGroupings } from 'c/dbmUtils';
+import { EVENTS, METRIC_TYPES, CHART_TYPES, CHART_COLOURS, switchGroupings } from 'c/dbmUtils';
 import CHART_ICONS from '@salesforce/resourceUrl/ChartIcons';
 
 const CHART_DETAIL_FORMAT = {
@@ -56,10 +56,11 @@ export default class DbmPreview extends LightningElement {
         return this._reportDetails;
     }
     set reportDetails(value) {
-        this._reportDetails = value;
+        this._reportDetails = JSON.parse(JSON.stringify(value));
         this.useSubgroupings = !this.reportDetails.groupings[1].isDisabled;
         this.drawChart();
         this.showChart = false;
+        this.chartType = this.reportDetails.chartType;
     }
     _reportDetails;
 
@@ -189,6 +190,9 @@ export default class DbmPreview extends LightningElement {
     handleChartTypeClick(event) {
         this.chartType = event.target.dataset.chartType;
         this.showChart = false;
+        this.reportDetails.chartType = this.chartType;
+        console.log(`changing reportType to ${this.reportDetails.chartType}`);
+        this.dispatchEvent(new CustomEvent(EVENTS.REPORT_DETAIL_CHANGE, { detail: this.reportDetails }));
     }
 
     drawChart() {

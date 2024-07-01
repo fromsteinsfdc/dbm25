@@ -213,6 +213,7 @@ export default class DbmListView extends LightningElement {
 
         const detail = {
             reportDetailRecord: clonedRecord,
+            isClone: true,
             target: EVENTS.TARGETS.DATASET_BUILDER
         }
         this.dispatchEvent(new CustomEvent(EVENTS.NAVIGATE, { detail }));
@@ -273,6 +274,10 @@ export default class DbmListView extends LightningElement {
     }
 
     /* EVENT HANDLERS */
+    handleRefreshRecordsClick() {
+        this.dispatchEvent(new CustomEvent(EVENTS.REFRESH_RECORDS));
+    }
+
     handleColumnSortClick(event) {
         let newSortedBy = event.currentTarget.dataset.fieldName;
         if (this.sortedBy === newSortedBy) {

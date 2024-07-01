@@ -2,7 +2,7 @@ import { LightningElement, wire, track } from 'lwc';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import { getRecord } from 'lightning/uiRecordApi';
 
-import { EVENTS, NAVIGATION, METRIC_NAMES, METRIC_TYPES, defaultReportDetails, transformConstantObject } from "c/dbmUtils";
+import { EVENTS, METRIC_NAMES, METRIC_TYPES, defaultReportDetails, transformConstantObject } from "c/dbmUtils";
 import getReportDetailRecords from '@salesforce/apex/DBM25Controller.getReportDetailRecords';
 import getPackageNamespace from '@salesforce/apex/DBM25Controller.getPackageNamespace';
 import sendFeedback from '@salesforce/apex/DBM25Controller.sendFeedback';
@@ -14,6 +14,7 @@ import REPORT_METRICTYPE_FIELD from "@salesforce/schema/DBM_Report__c.Metric_Typ
 import REPORT_FOLDERNAME_FIELD from "@salesforce/schema/DBM_Report__c.Report_Folder_name__c";
 import REPORT_REPORTID_FIELD from "@salesforce/schema/DBM_Report__c.Report_ID__c";
 import REPORT_NUMBEROFGROUPINGS_FIELD from "@salesforce/schema/DBM_Report__c.Number_of_Groupings__c";
+import REPORT_CHARTTYPE_FIELD from "@salesforce/schema/DBM_Report__c.Chart_Type__c";
 
 import DBMREPORTGROUPING_OBJECT from "@salesforce/schema/DBM_Report_Grouping__c";
 import GROUPING_NAME_FIELD from "@salesforce/schema/DBM_Report_Grouping__c.Name";
@@ -109,10 +110,10 @@ export default class DbmContainer extends LightningElement {
 
     /* LIFECYCLE HOOKS */
     connectedCallback() {
-        console.log(`DBMDATAENTRY_OBJECT = ${JSON.stringify(DBMDATAENTRY_OBJECT)}`);
-        console.log(`REPORT_NAME_FIELD = ${JSON.stringify(REPORT_NAME_FIELD)}`);
+        // console.log(`DBMDATAENTRY_OBJECT = ${JSON.stringify(DBMDATAENTRY_OBJECT)}`);
+        // console.log(`REPORT_NAME_FIELD = ${JSON.stringify(REPORT_NAME_FIELD)}`);
 
-        this.activePanel = Object.values(NAVIGATION.TARGETS)[0];
+        this.activePanel = Object.values(EVENTS.TARGETS)[0];
 
         if (!this.reportDetailRecordsLoaded) {
             this.fetchReportDetailRecords();
@@ -150,18 +151,18 @@ export default class DbmContainer extends LightningElement {
     }
 
     handleRefreshRecordsList() {
-        console.log(`in handleRefreshRecordsList`);
+        // console.log(`in handleRefreshRecordsList`);
         this.fetchReportDetailRecords();
     }
 
     handleNavigation(event) {
         console.log(`in dbmContainer handleNavigation, event = ${JSON.stringify(event.detail)}`);
-        this.reportDetails = this.processApexRecord(event.detail.reportDetailRecord);
+        this.reportDetails = this.processApexRecord(event.detail.reportDetailRecord, event.detail.isClone);
         this.activePanel = event.detail.target;
     }
 
     handleCopyToClipboard(event) {
-        console.log(`in handleCopyToClipboard`);// ${event}`);
+        // console.log(`in handleCopyToClipboard`);// ${event}`);
         let copyString;
         if (event.detail.string) {
             copyString = event.detail.string;
@@ -207,7 +208,7 @@ export default class DbmContainer extends LightningElement {
         let feedback = {};
         let isValid = true;
         feedbackFields.forEach(field => {
-            console.log(`field name = feedback${field.charAt(0).toUpperCase() + field.slice(1)}}`);
+            // console.log(`field name = feedback${field.charAt(0).toUpperCase() + field.slice(1)}}`);
             let fieldEl = this.template.querySelector(`.feedback${field.charAt(0).toUpperCase() + field.slice(1)}`);
             if (fieldEl) {
                 feedback[field] = fieldEl.value || fieldEl.checked;
@@ -236,12 +237,13 @@ export default class DbmContainer extends LightningElement {
     }
 
     /* UTILITY FUNCTIONS */
-    processApexRecord(sobjectData) {
-        console.log(`in dbmContainer processApexRecord`);
+    processApexRecord(sobjectData, isClone) {
+        // console.log(`in dbmContainer processApexRecord`);
         // Start by assuming the report details will be the default values
         let reportDetails = defaultReportDetails();
         // If SObject data is being passed in, then overwrite the default values with that data
         if (sobjectData) {
+            reportDetails.isClone = isClone;
             // Populate Report Details properties
             reportDetails.id = sobjectData.Id;
             reportDetails.reportName = sobjectData[REPORT_NAME_FIELD.fieldApiName];
@@ -255,30 +257,18 @@ export default class DbmContainer extends LightningElement {
                 reportDetails.metricIsCustom = true;
                 reportDetails.customMetricName = metricLabel;
             }
-            // reportDetails.metricLabel = ;
-            // console.log(`setting metric type`);
-            // console.log(JSON.stringify(METRIC_TYPES));
-            // console.log(REPORT_METRICTYPE_FIELD.fieldApiName);
-            // console.log(JSON.stringify(sobjectData[REPORT_METRICTYPE_FIELD.fieldApiName]));
             reportDetails.metricType = Object.values(METRIC_TYPES).find(type => type.label === sobjectData[REPORT_METRICTYPE_FIELD.fieldApiName] || type.value === sobjectData[REPORT_METRICTYPE_FIELD.fieldApiName]).value;            
-            // console.log(`metric type: ${reportDetails.metricType}`);
             reportDetails.folderDeveloperName = sobjectData[REPORT_FOLDERNAME_FIELD.fieldApiName];
-            // console.log(`folderDeveloperName: ${reportDetails.folderDeveloperName}`);
             reportDetails.reportId = sobjectData[REPORT_REPORTID_FIELD.fieldApiName];
-            // console.log(`reportId: ${reportDetails.reportId}`);
             reportDetails.numGroupings = sobjectData[REPORT_NUMBEROFGROUPINGS_FIELD.fieldApiName];
-            // console.log(`numGroupings: ${reportDetails.numGroupings}`);
-
-
-            // (SELECT Name, Id, Grouping_Number__c, Data_Source__c, Object_Name__c, Field_Name__c, Display_as_Link__c FROM DBM_Report_Groupings__r ORDER BY Grouping_Number__c ASC), 
-            // (SELECT Name, Id, Grouping__c, Grouping_Order__c, Record_ID__c, User__c FROM DBM_Report_Grouping_Entries__r ORDER BY Grouping_Order__c ASC),
-            console.log(`Report Object details finished: ${JSON.stringify(reportDetails)}`);
+            reportDetails.chartType = sobjectData[REPORT_CHARTTYPE_FIELD.fieldApiName];
+            // console.log(`Report Object details finished: ${JSON.stringify(reportDetails)}`);
 
             let data = [];
 
             // Populate Grouping and Grouping Entry properties
             sobjectData[this.prependNamespace('DBM_Report_Groupings__r')].forEach((groupingSobject, groupingIndex) => {
-                console.log(`in grouping ${groupingIndex}: ${JSON.stringify(groupingSobject)}`);
+                // console.log(`in grouping ${groupingIndex}: ${JSON.stringify(groupingSobject)}`);
                 let grouping = reportDetails.groupings[groupingIndex];
                 grouping.id = groupingSobject.Id;
                 grouping.name = groupingSobject[GROUPING_NAME_FIELD.fieldApiName];
@@ -302,8 +292,8 @@ export default class DbmContainer extends LightningElement {
                     }
                 });
             });
-            console.log(`groupings after groupings populated: ${JSON.stringify(reportDetails.groupings)}`);
-            console.log(`data after grouping entries populated: ${JSON.stringify(data)}`);
+            // console.log(`groupings after groupings populated: ${JSON.stringify(reportDetails.groupings)}`);
+            // console.log(`data after grouping entries populated: ${JSON.stringify(data)}`);
 
             // Populate Data Entry properties
             let dataEntrySobjects = sobjectData[this.prependNamespace('DBM_Data_Entries__r')];
@@ -320,7 +310,7 @@ export default class DbmContainer extends LightningElement {
             });
             reportDetails.data = data;
         }
-        console.log(`reportDetails at end of processApexRecord = ${JSON.stringify(reportDetails)}`);
+        // console.log(`reportDetails at end of processApexRecord = ${JSON.stringify(reportDetails)}`);
         return reportDetails;
     }
 

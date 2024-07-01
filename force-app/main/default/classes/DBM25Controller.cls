@@ -87,7 +87,7 @@ public with sharing class DBM25Controller {
     @AuraEnabled
     public static List<DBM_Report__c> getReportDetailRecords() {
         List<DBM_Report__c> reportDetailRecords = [SELECT 
-            Id, Name, Metric_Label__c, Metric_Type__c, Number_of_Groupings__c, Report_Folder_name__c, Report_ID__c, LastModifiedDate, CreatedDate,
+            Id, Name, Metric_Label__c, Metric_Type__c, Number_of_Groupings__c, Report_Folder_name__c, Report_ID__c, Chart_Type__c, LastModifiedDate, CreatedDate,
             (SELECT Name, Id, Grouping_Number__c, Data_Source__c, Object_Name__c, Field_Name__c, Display_as_Link__c FROM DBM_Report_Groupings__r ORDER BY Grouping_Number__c ASC), 
             (SELECT Name, Id, Grouping__c, Grouping_Order__c, Record_ID__c, User__c FROM DBM_Report_Grouping_Entries__r ORDER BY Grouping_Order__c ASC),
             (SELECT Id, Name, Value__c, Grouping_1__c, Grouping_2__c FROM DBM_Data_Entries__r) 
@@ -127,6 +127,7 @@ public with sharing class DBM25Controller {
             newReport.Metric_Label__c = (String)requestObject.get('metricLabel');
             newReport.Metric_Type__c = (String)requestObject.get('metricType');
             newReport.Report_Folder_name__c = (String)requestObject.get('folderDeveloperName');
+            newReport.Chart_Type__c = (String)requestObject.get('chartType');
             // insert newReport;
             upsert newReport;
 
@@ -150,7 +151,7 @@ public with sharing class DBM25Controller {
                 newGrouping.Object_Name__c = (String)groupingObject.get('objectName');
                 newGrouping.Field_Name__c = (String)groupingObject.get('fieldName');
                 newGrouping.Grouping_Number__c = (Integer)groupingObject.get('groupingNumber');
-                newGrouping.Enumerate_Entries__c = (Boolean)groupingObject.get('enumerate');
+                // newGrouping.Enumerate_Entries__c = (Boolean)groupingObject.get('enumerate');
                 groupingEntryMap.put(newGrouping.Name, new List<DBM_Report_Grouping_Entry__C>());
                 newGroupings.add(newGrouping);
 
@@ -232,9 +233,9 @@ public with sharing class DBM25Controller {
         return service;
     }
 
+    // LWC-invocable method used to call the Future method generateReport, since using the MetadataService doesn't work when invoked directly from LWC (at least, I think it doesn't)
     @AuraEnabled
     public static void createReport(Id reportDetailsRecordId) {
-        System.debug('in createReport, reportDetailsRecordId = '+ reportDetailsRecordId);
         generateReport(reportDetailsRecordId);
     }
 
@@ -245,7 +246,7 @@ public with sharing class DBM25Controller {
             MetadataService.MetadataPort service = createService();
             MetadataService.Report newReport = new MetadataService.Report();
 
-            DBM_Report__c reportDetailsRecord = [SELECT Id, Name, Metric_Label__c, Metric_Type__c, Metric_type_enum__c, Number_of_Groupings__c, Report_ID__c, Report_Folder_Name__c FROM DBM_Report__c WHERE Id =: reportDetailsRecordId];
+            DBM_Report__c reportDetailsRecord = [SELECT Id, Name, Metric_Label__c, Metric_Type__c, Metric_type_enum__c, Number_of_Groupings__c, Report_ID__c, Report_Folder_Name__c, Chart_Type__c FROM DBM_Report__c WHERE Id =: reportDetailsRecordId];
             String existingReportDeveloperName;
             // Report existingReport = [SELECT Id FROM Report WHERE Id =: reportDetailsRecord.Report_ID__c];
             if (!String.isBlank(reportDetailsRecord.Report_ID__c)) {
@@ -262,7 +263,8 @@ public with sharing class DBM25Controller {
             MetadataService.ReportGrouping[] groupings = new List<MetadataService.ReportGrouping>();
             MetadataService.ReportAggregate[] aggregates = new List<MetadataService.ReportAggregate>();
             MetadataService.ReportFilter filter = new MetadataService.ReportFilter();
-            MetadataService.ReportChart chart = null;//getMetadataChart(fakeObjRes.getName() + '.' + columnFieldNames[0]);
+            MetadataService.ReportChart chart;// = getMetadataChart(reportDetailsRecord);
+            System.debug('chart = '+ chart);
             
             columns.add(getMetadataColumn(dataEntryObjRes.getName() +'.'+ valueFieldRes.getName(), true));
             columns.add(getMetadataColumn(dataEntryObjRes.getName() +'.'+ grouping1OrderFieldRes.getName(), true));
@@ -274,10 +276,12 @@ public with sharing class DBM25Controller {
 
             List<DescribeFieldResult> groupingFieldResults = new DescribeFieldResult[] { grouping1FieldRes, grouping2FieldRes };
             integer groupingIndex = 0;
+            List<String> bucketNames = new List<String>();
             for (DBM_Report_Grouping__c grouping : [SELECT Name FROM DBM_Report_Grouping__c WHERE Report__c =: reportDetailsRecordId]) {
                 // String fieldName = 
                 MetadataService.ReportBucketField bucket = getMetadataBucket(dataEntryObjRes.getName() + '.'+ groupingFieldResults[groupingIndex].getName(), grouping.Name, groupingIndex);
                 buckets.add(bucket);
+
                 String sortByName = dataEntryObjRes.getName() +'.'+ (groupingIndex == 0 ? grouping1OrderFieldRes.getName() : grouping2OrderFieldRes.getName());
                 groupings.add(getMetadataGrouping(bucket.developerName, sortByName));
                 groupingIndex++;
@@ -304,7 +308,7 @@ public with sharing class DBM25Controller {
             newReport.aggregates = aggregates;
             newReport.groupingsDown = groupings;
             newReport.filter = filter;
-            newReport.chart = chart; // TODO: add chart
+            newReport.chart = getMetadataChart(reportDetailsRecord.Chart_Type__c, buckets);// chart; // TODO: add chart
             newReport.format = Reports.ReportFormat.SUMMARY.name();
             newReport.scope = 'organization';   // no idea what this does, but it seems to work
             newReport.showDetails = true;   // personal preference            
@@ -325,26 +329,33 @@ public with sharing class DBM25Controller {
             update reportDetailsRecord;
             // Handle results
             // return result;
-            if (result.success) {       
+            if (result.success) {
                 DBM_Event__e successEvent = new DBM_Event__e(Report_ID__c = insertedReport.Id, Report_Details_Record_ID__c = reportDetailsRecordId, Message__c = 'Success: '+ result.fullName, Is_Success__c = true);
                 Database.SaveResult messageResult = EventBus.publish(successEvent);
                 if (messageResult.isSuccess()) {
                     System.debug('Successfully published event.');
                 } else {
+                    String errorMessage = '';
                     for(Database.Error err : messageResult.getErrors()) {
-                        System.debug('Error returned: ' + err.getStatusCode() + ' - ' + err.getMessage());
+                        errorMessage += 'Error returned: ' + err.getStatusCode() + ' - ' + err.getMessage() +'\n';
                     }
+                    System.debug(errorMessage);
+                    throw new DBM25Exception(errorMessage);
                 }           
             }
         } catch (Exception e) {
-            DBM_Event__e failureEvent = new DBM_Event__e(Message__c = 'Failure: '+ e.getMessage(), Is_Success__c = false);
+            DBM_Event__e failureEvent = new DBM_Event__e(Message__c = 'Failure: '+ e.getMessage() +'\r\n'+ e.getLineNumber() +'\r\n', Is_Success__c = false);
             Database.SaveResult messageResult = EventBus.publish(failureEvent);
             if (messageResult.isSuccess()) {
                 System.debug('Successfully published failure event.');
             } else {
+                String errorMessage = '';
                 for(Database.Error err : messageResult.getErrors()) {
-                    System.debug('Error returned: ' + err.getStatusCode() + ' - ' + err.getMessage());
+                    // System.debug('Error returned: ' + err.getStatusCode() + ' - ' + err.getMessage());
+                    errorMessage += 'Error returned: ' + err.getStatusCode() + ' - ' + err.getMessage() +'\n';
                 }
+                System.debug(errorMessage);
+                throw new DBM25Exception(errorMessage);
             }           
         }
     }
@@ -397,7 +408,7 @@ public with sharing class DBM25Controller {
         newBucket.masterLabel = label;
         newBucket.developerName = 'BucketField_'+ String.valueOf(jankyUniqueCharacter) + Datetime.now().getTime();
         newBucket.bucketType = 'text';
-       return newBucket;
+        return newBucket;
     }
 
     public static MetadataService.ReportGrouping getMetadataGrouping(String fieldDeveloperName, String sortByName) {
@@ -425,17 +436,62 @@ public with sharing class DBM25Controller {
         return newFilter;
     }
 
-    public static MetadataService.ReportChart getMetadataChart(Id reportDetailsRecordId) {
+    public static MetadataService.ReportChart getMetadataChart(String recordChartType, List<MetadataService.ReportBucketField> buckets) {
         MetadataService.ReportChart newChart = new MetadataService.ReportChart();
-        // newChart.chartType;
-        // newChart.groupingColumn;
-        // newChart.secondaryGroupingColumn;
-        newChart.legendPosition = 'Right';
+        String apexChartType = 'HorizontalBar';
+        if (recordChartType == 'vbar') {
+            if (buckets.size() == 2) {
+                apexChartType = 'VerticalColumnGrouped';
+            } else {
+                apexChartType = 'VerticalColumn';
+            }
+        } else if (recordChartType == 'stackvbar') {
+            apexChartType = 'VerticalColumnStacked';
+        } else if (recordChartType == 'hbar') {
+            if (buckets.size() == 2) {
+                apexChartType = 'HorizontalBarGrouped';
+            }
+        } else if (recordChartType == 'stackhbar') {
+            apexChartType = 'HorizontalBarStacked';
+        } else if (recordChartType == 'donut') {
+            apexChartType = 'Donut';
+        }
+        /*
+HorizontalBar
+HorizontalBarGrouped
+HorizontalBarStacked
+VerticalColumn
+VerticalColumnGrouped
+VerticalColumnStacked
+Donut
+        */
+/*
+    { label: 'Vertical Bar Chart', style: 'bar', name: 'vbar', multiGroupings: [true, false] },
+    { label: 'Stacked Vertical Bar Chart', style: 'bar', name: 'stackvbar', multiGroupings: [true] },
+    { label: 'Horizontal Bar Chart', style: 'horizontalBar', name: 'hbar', multiGroupings: [true, false] },
+    { label: 'Stacked Horizontal Bar Chart', style: 'horizontalBar', name: 'stackhbar', multiGroupings: [true] },
+    { label: 'Pie Chart', style: 'pie', name: 'donut', multiGroupings: [false] },
+*/
+        newChart.chartType = apexChartType;
+        newChart.groupingColumn = buckets[0].developerName;
+        if (buckets.size() == 2) {
+            newChart.secondaryGroupingColumn = buckets[1].developerName;
+        }
+
+        // newChart.legendPosition = 'Right';
         newChart.location = 'CHART_TOP';
         newChart.showAxisLabels = true;
         newChart.size = 'Medium';
         newChart.summaryAxisRange = 'Auto';
         // newChart.title;
+
+        MetadataService.ChartSummary chartSummary = new MetadataService.ChartSummary();
+        chartSummary.column = dataEntryObjRes.getName() +'.'+ valueFieldRes.getName();
+        chartSummary.aggregate = 'Sum';
+        chartSummary.axisBinding = 'y';
+
+        newChart.chartSummaries = new List<MetadataService.ChartSummary>{ chartSummary };
+        System.debug('newChart = '+ newChart);
         return newChart;
     }
 
@@ -496,6 +552,20 @@ public with sharing class DBM25Controller {
             System.debug(col);
         }
         System.debug(reportToClone.chart);
-        
+        Map<String, Object> chartMap = (Map<String, Object>)JSON.deserializeUntyped(JSON.serialize(reportToClone.chart));
+        for (String key : chartMap.keySet()) {
+            System.debug(key +': '+ chartMap.get(key));
+        }
+
+        System.debug('--- CHART SUMMARIES ---');
+        List<MetadataService.ChartSummary> chartSummaries = reportToClone.chart.chartSummaries;
+        for (MetadataService.ChartSummary chartSummary : chartSummaries) {
+            System.debug('- NEW CHART SUMMARY -');
+            Map<String, Object> chartSummaryMap = (Map<String, Object>)JSON.deserializeUntyped(JSON.serialize(chartSummary));
+            for (String key : chartSummaryMap.keySet()) {
+                System.debug(key +': '+ chartSummaryMap.get(key));
+            }        
+        }
+
     }
 }
