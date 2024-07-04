@@ -19,7 +19,7 @@ export default class DbmDatasetFinalize extends LightningElement {
                 value: folder.DeveloperName
             }
         });
-        console.log(`options = ${JSON.stringify(options)}`);
+        // console.log(`options = ${JSON.stringify(options)}`);
         return options;
     }
 

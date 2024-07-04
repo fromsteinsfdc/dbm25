@@ -40,20 +40,14 @@ import USER_ID from '@salesforce/user/Id';
 import USER_NAME from '@salesforce/schema/User.Name';
 import USER_EMAIL from '@salesforce/schema/User.Email';
 
-
-// Id, Name, Metric_Label__c, Metric_Type__c, Number_of_Groupings__c, Report_Folder_name__c, Report_ID__c, LastModifiedDate, 
-// (SELECT Name, Id, Data_Source__c, Object_Name__c, Field_Name__c, Display_as_Link__c FROM DBM_Report_Groupings__r), 
-// (SELECT Name, Id, Grouping__c, Grouping_Order__c, Record_ID__c FROM DBM_Report_Grouping_Entries__r),
-// (SELECT Id, Name, Value__c, Grouping_1__c, Grouping_2__c FROM DBM_Data_Entries__r) 
-// FROM DBM_Report__c ORDER BY LastModifiedDate DESC];
-
-
+/*
 const MENU_PANEL_OPTIONS = [
     { name: 'existing', label: 'View Existing Datasets', iconName: 'utility:record_alt' },
     { name: 'new', label: 'Build Dataset', iconName: 'utility:record_create' },
     { name: 'settings', label: 'Settings', iconName: 'utility:settings' },
     { name: 'help', label: 'Help', iconName: 'utility:help_center' },
 ]
+*/
 
 const FEEDBACK_TYPE_OPTIONS = [
     { label: `Bug - something isn\'t working properly`, value: 'Bug' },
@@ -87,8 +81,6 @@ export default class DbmContainer extends LightningElement {
     }
     _reportDetailRecordsLoaded = false;
 
-
-    // showDatasetBuilder = false;
     showSpinner = false;
     showFeedbackSpinner = false;    
     showHelpModal = false;
@@ -110,11 +102,7 @@ export default class DbmContainer extends LightningElement {
 
     /* LIFECYCLE HOOKS */
     connectedCallback() {
-        // console.log(`DBMDATAENTRY_OBJECT = ${JSON.stringify(DBMDATAENTRY_OBJECT)}`);
-        // console.log(`REPORT_NAME_FIELD = ${JSON.stringify(REPORT_NAME_FIELD)}`);
-
         this.activePanel = Object.values(EVENTS.TARGETS)[0];
-
         if (!this.reportDetailRecordsLoaded) {
             this.fetchReportDetailRecords();
         }
@@ -156,7 +144,7 @@ export default class DbmContainer extends LightningElement {
     }
 
     handleNavigation(event) {
-        console.log(`in dbmContainer handleNavigation, event = ${JSON.stringify(event.detail)}`);
+        // console.log(`in dbmContainer handleNavigation, event = ${JSON.stringify(event.detail)}`);
         this.reportDetails = this.processApexRecord(event.detail.reportDetailRecord, event.detail.isClone);
         this.activePanel = event.detail.target;
     }

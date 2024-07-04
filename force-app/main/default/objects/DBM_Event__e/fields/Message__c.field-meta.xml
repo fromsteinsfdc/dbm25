@@ -6,8 +6,7 @@
     <isNameField>false</isNameField>
     <isSortingDisabled>false</isSortingDisabled>
     <label>Message</label>
-    <length>255</length>
-    <required>false</required>
-    <type>Text</type>
-    <unique>false</unique>
+    <length>131072</length>
+    <type>LongTextArea</type>
+    <visibleLines>5</visibleLines>
 </CustomField>

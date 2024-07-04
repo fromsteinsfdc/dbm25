@@ -1,6 +1,5 @@
 // TODO: add Settings
 // TODO: figure out what to call "percent" metric type in the picklist (Percent, percent, percent-fixed, etc)
-// TODO: add chart to report
 // TODO: add status in toolbar
 // TODO (on hold): fix alphanumeric ordering
 // TODO (on hold): Add users to the report details object so images can be shown on screen
@@ -19,6 +18,7 @@
 // TODO (complete): set final error message with copyable JSON
 // TODO (complete): add Help
 // TODO (complete): add email notifications
+// TODO (complete): add chart to report
 
 import { LightningElement, track, api, wire } from 'lwc';
 import { subscribe, unsubscribe, onError, setDebugFlag, isEmpEnabled, } from 'lightning/empApi';
@@ -39,7 +39,8 @@ import sendFeedback from '@salesforce/apex/DBM25Controller.sendFeedback';
 // import REPORT_NAME_FIELD from "@salesforce/schema/DBM_Report__c.Name";
 
 const PLATFORM_EVENT = {
-    CHANNEL_NAME: '/event/DBM_Event__e',
+    EVENT: '/event/',
+    CHANNEL_NAME: 'DBM_Event__e',
     SUCCESS_FIELD: `Is_Success__c`,
     MESSAGE_FIELD: `Message__c`,
     REPORT_ID_FIELD: 'Report_ID__c',
@@ -252,16 +253,6 @@ export default class DbmDatasetBuilder extends LightningElement {
                     return row.map(cell => cell === null ? 0 : cell);
                 })
             }
-
-            // this.reportDetails.groupings.forEach(grouping => {
-            //     if (grouping.enumerate) {
-            //         grouping.entries.forEach(entry => {
-            //             // entry.value = `${entry.number}. ${entry.value}`
-            //             entry.value = `${entry.letter}. ${entry.value}`
-            //         })
-            //         grouping.enumerate = false;
-            //     }
-            // })
 
             this.reportDetails = this.reportDetails;    // Necessary for some edge-case last minute display changes to appear
             let saveResponse = await saveReportDetails({ reportDetailsString: this.reportDetailsString });
@@ -519,7 +510,9 @@ export default class DbmDatasetBuilder extends LightningElement {
     }
 
     handlePlatformEventReceipt(response) {
+        console.log(`in handlePlatformEventReceipt`);        
         const payload = response.data.payload;
+        console.log(`payload = ${JSON.stringify(payload)}`);
         const errorMessage = payload[this.prependNamespace(PLATFORM_EVENT.MESSAGE_FIELD)];
         const reportId = payload[this.prependNamespace(PLATFORM_EVENT.REPORT_ID_FIELD)];
         const isSuccess = payload[this.prependNamespace(PLATFORM_EVENT.SUCCESS_FIELD)];
@@ -565,12 +558,14 @@ export default class DbmDatasetBuilder extends LightningElement {
     }
 
     subscribeToPlatformEvent() {
+        console.log(`in subscribe to platform event. namespace = ${this.namespace}`);
         const self = this;
         const messageCallback = function (response) {
             self.handlePlatformEventReceipt(response);
         }
         if (!this.subscription) {
-            subscribe(PLATFORM_EVENT.CHANNEL_NAME, -1, messageCallback).then(response => {
+            console.log(`subscribing to channel ${PLATFORM_EVENT.EVENT + this.prependNamespace(PLATFORM_EVENT.CHANNEL_NAME)}`);
+            subscribe(PLATFORM_EVENT.EVENT + this.prependNamespace(PLATFORM_EVENT.CHANNEL_NAME), -1, messageCallback).then(response => {
                 this.subscription = response;
             });
         }

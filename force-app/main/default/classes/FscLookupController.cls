@@ -23,22 +23,9 @@ public without sharing class FscLookupController {
             if (String.isBlank(fieldsToSearch)) {
                 fieldsToSearch = objectNameField;
             } else if (fieldsToSearch.toLowerCase() == 'all') {
-                // TODO: more exhaustive list of valid operators for different field data types
-                /*
-                List<String> fieldNames = new List<String>(fieldMap.keySet());
-                fieldNames.remove(fieldNames.indexOf('id'));
-                fieldsToSearch = String.join(fieldNames, ',');
-                // fieldsToSearch.replace(',Id,',','); // Like operator cannot be performed on ID
-                */
             }
 
             List<String> searchFieldList = new List<String>();
-            // System.debug('untrimmed = '+ fieldsToSearch.split(','));
-            // List<String> searchStrings = splitAndTrim(fieldsToSearch);
-            // System.debug('searchStrings = '+ searchStrings);
-            // for (String searchString : searchStrings) {
-            //     System.debug('test: !'+ searchString +'!');
-            // }
             for (String searchField : fieldsToSearch.split(',')) {
                 System.debug('searching for !'+ searchField +'!, or !'+ searchField.trim()+'!');
                 System.debug('found '+ fieldMap.get(searchField));

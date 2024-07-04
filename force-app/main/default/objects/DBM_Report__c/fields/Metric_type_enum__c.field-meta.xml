@@ -2,7 +2,7 @@
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
     <fullName>Metric_type_enum__c</fullName>
     <externalId>false</externalId>
-    <formula>IF(CONTAINS(TEXT(Metric_Type__c), &quot;formula&quot;), &quot;formula&quot;,
+    <formula>IF(CONTAINS(TEXT(Metric_Type__c), &quot;currency&quot;), &quot;currency&quot;,
   IF(CONTAINS(TEXT(Metric_Type__c), &quot;percent&quot;), &quot;percent&quot;,
     &quot;number&quot;
   )

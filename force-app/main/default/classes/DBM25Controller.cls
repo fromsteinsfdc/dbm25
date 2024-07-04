@@ -1,4 +1,4 @@
-public with sharing class DBM25Controller {
+public class DBM25Controller {
 
     public class DBM25Exception extends Exception {}
     public static final Integer apiNameMaxLength = 40;
@@ -11,8 +11,10 @@ public with sharing class DBM25Controller {
     
     public static String packageNamespace;
     
-    public static DescribeSObjectResult reportObjRes = DBM_Report__c.getSObjectType().getDescribe();
+    public static DescribeSObjectResult reportObjRes = DBM_Report__c.getSObjectType().getDescribe();    
     public static DescribeSObjectResult dataEntryObjRes = DBM_Data_Entry__c.getSObjectType().getDescribe();
+    public static DescribeFieldResult metricLabelFieldRes = DBM_Report__c.Metric_Label__c.getDescribe();
+    public static DescribeFieldResult metricTypeEnumFieldRes = DBM_Report__c.Metric_type_enum__c.getDescribe();
     public static DescribeFieldResult reportFieldRes = DBM_Data_Entry__c.Report__c.getDescribe();
     public static DescribeFieldResult valueFieldRes = DBM_Data_Entry__c.Value__c.getDescribe();
     public static DescribeFieldResult grouping1FieldRes = DBM_Data_Entry__c.Grouping_1__c.getDescribe();
@@ -330,6 +332,8 @@ public with sharing class DBM25Controller {
             // Handle results
             // return result;
             if (result.success) {
+                dispatchDbmEvent('Success: '+ result.fullName, true, insertedReport.Id, reportDetailsRecordId);
+                /*
                 DBM_Event__e successEvent = new DBM_Event__e(Report_ID__c = insertedReport.Id, Report_Details_Record_ID__c = reportDetailsRecordId, Message__c = 'Success: '+ result.fullName, Is_Success__c = true);
                 Database.SaveResult messageResult = EventBus.publish(successEvent);
                 if (messageResult.isSuccess()) {
@@ -341,9 +345,12 @@ public with sharing class DBM25Controller {
                     }
                     System.debug(errorMessage);
                     throw new DBM25Exception(errorMessage);
-                }           
+                } 
+                */
             }
         } catch (Exception e) {
+            dispatchDbmEvent('Failure: '+ e.getMessage() +'\r\n'+ e.getLineNumber() +'\r\n', false, null, null);
+            /*
             DBM_Event__e failureEvent = new DBM_Event__e(Message__c = 'Failure: '+ e.getMessage() +'\r\n'+ e.getLineNumber() +'\r\n', Is_Success__c = false);
             Database.SaveResult messageResult = EventBus.publish(failureEvent);
             if (messageResult.isSuccess()) {
@@ -356,7 +363,8 @@ public with sharing class DBM25Controller {
                 }
                 System.debug(errorMessage);
                 throw new DBM25Exception(errorMessage);
-            }           
+            }
+            */
         }
     }
 
@@ -385,6 +393,27 @@ public with sharing class DBM25Controller {
         }
         
         return response;
+    }
+
+    public static void dispatchDbmEvent(String msg, Boolean isSuccess, Id reportId, Id reportDetailsRecordId) {
+        System.debug('in dispatchDbmEvent');
+        System.debug('msg = '+ msg);
+        System.debug('isSuccess = '+ isSuccess);
+
+        DBM_Event__e newEvent = new DBM_Event__e(Message__c = msg, Is_Success__c = isSuccess, Report_ID__c = reportId, Report_Details_Record_ID__c = reportDetailsRecordId);
+        Database.SaveResult messageResult = EventBus.publish(newEvent);
+
+        if (messageResult.isSuccess()) {
+            System.debug('Successfully published event.');
+        } else {
+            String errorMessage = '';
+            for(Database.Error err : messageResult.getErrors()) {
+                // System.debug('Error returned: ' + err.getStatusCode() + ' - ' + err.getMessage());
+                errorMessage += 'Error returned: ' + err.getStatusCode() + ' - ' + err.getMessage() +'\n';
+            }
+            System.debug(errorMessage);
+            throw new DBM25Exception(errorMessage);
+        }           
     }
 
     /* The following section is customized adapters based on the MetadataService class  */
@@ -456,22 +485,7 @@ public with sharing class DBM25Controller {
         } else if (recordChartType == 'donut') {
             apexChartType = 'Donut';
         }
-        /*
-HorizontalBar
-HorizontalBarGrouped
-HorizontalBarStacked
-VerticalColumn
-VerticalColumnGrouped
-VerticalColumnStacked
-Donut
-        */
-/*
-    { label: 'Vertical Bar Chart', style: 'bar', name: 'vbar', multiGroupings: [true, false] },
-    { label: 'Stacked Vertical Bar Chart', style: 'bar', name: 'stackvbar', multiGroupings: [true] },
-    { label: 'Horizontal Bar Chart', style: 'horizontalBar', name: 'hbar', multiGroupings: [true, false] },
-    { label: 'Stacked Horizontal Bar Chart', style: 'horizontalBar', name: 'stackhbar', multiGroupings: [true] },
-    { label: 'Pie Chart', style: 'pie', name: 'donut', multiGroupings: [false] },
-*/
+
         newChart.chartType = apexChartType;
         newChart.groupingColumn = buckets[0].developerName;
         if (buckets.size() == 2) {
@@ -501,10 +515,12 @@ Donut
             datatype = METRIC_TYPE_NUMBER;
         }
         MetadataService.ReportAggregate agg = new MetadataService.ReportAggregate();
-        // agg.calculatedFormula = dataEntryObjRes.getName() +'.'+ valueFieldRes.getName() +':SUM';
-        agg.calculatedFormula = 'DBM_Data_Entry__c.Value__c:SUM';   // For some reason this fails with the namespace included, so I removed it
+        agg.calculatedFormula = dataEntryObjRes.getName() +'.'+ valueFieldRes.getName() +':SUM';
+        System.debug('formula column calculatedFormula = '+ agg.calculatedFormula);
+        // agg.calculatedFormula = 'DBM_Data_Entry__c.Value__c:SUM';   // For some reason this fails with the namespace included, so I removed it
         if (datatype == METRIC_TYPE_PERCENT) {
             agg.calculatedFormula += '/100';
+            System.debug('adding "/100" to the calculated formula since it\'s a percent');
         }
         agg.datatype = datatype;
         agg.developerName = 'FORMULA1'; // note: must start with 'FORMULA'
@@ -525,8 +541,9 @@ Donut
             messages.add(
                 (saveResult.errors.size()==1 ? 'Error ' : 'Errors ') +
                     'occured processing component ' + saveResult.fullName + '.');
+            Integer errorIndex = 1;
             for(MetadataService.Error error : saveResult.errors) {
-                System.debug('Error: '+ error.message);
+                System.debug('Error #'+ errorIndex +'/'+ saveResult.errors.size() +': '+ error.message);
                 //messages.add('extended results: '+ error.ExtendedErrorDetails);
                 messages.add(
                     error.message + ' (' + error.statusCode + ').' +
@@ -534,7 +551,7 @@ Donut
                         ' Fields ' + String.join(error.fields, ',') + '.' : '' ) );
             }
             if(messages.size()>0)
-                throw new DBM25Exception(String.join(messages, ' '));
+                throw new DBM25Exception(String.join(messages, ' \r\n'));
         }
         if(!saveResult.success)
             throw new DBM25Exception('Request failed with no specified error.');
