@@ -3,8 +3,9 @@ public class DBM25Controller {
     public class DBM25Exception extends Exception {}
     public static final Integer apiNameMaxLength = 40;
     public static final String userObjectPrefix = '005';
-    public static final String SUCCESS = 'success';
-    public static final String ERROR = 'error';
+    // public static final String SUCCESS = 'success';
+    // public static final String ERROR = 'error';
+    public static final String FORMULA_NAME = 'FORMULA1';
     public static final String METRIC_TYPE_PERCENT = 'percent';
     public static final String METRIC_TYPE_NUMBER = 'number';
     public static final String notificationEmail = 'dashboardmagic@gmail.com';
@@ -114,6 +115,9 @@ public class DBM25Controller {
         try {
             // Deserialize the `reportDetails` JSON object into a map of Apex objects
             Map<String, Object> requestObject = (Map<String, Object>)JSON.deserializeUntyped(reportDetailsString);
+            for (String key : requestObject.keySet()) {
+                System.debug(key +': '+ requestObject.get(key));
+            }
             
             // Delete any existing child records from the report, if it exists
             List<DBM_Report__c> existingReports = [SELECT Id FROM DBM_Report__c WHERE Id =: (String)requestObject.get('id')];
@@ -268,10 +272,10 @@ public class DBM25Controller {
             MetadataService.ReportChart chart;// = getMetadataChart(reportDetailsRecord);
             System.debug('chart = '+ chart);
             
-            columns.add(getMetadataColumn(dataEntryObjRes.getName() +'.'+ valueFieldRes.getName(), true));
-            columns.add(getMetadataColumn(dataEntryObjRes.getName() +'.'+ grouping1OrderFieldRes.getName(), true));
+            columns.add(getMetadataColumn(dataEntryObjRes.getLocalName() +'.'+ valueFieldRes.getLocalName(), true));
+            columns.add(getMetadataColumn(dataEntryObjRes.getLocalName() +'.'+ grouping1OrderFieldRes.getLocalName(), true));
             if (reportDetailsRecord.Number_of_Groupings__c == 2) {
-                columns.add(getMetadataColumn(dataEntryObjRes.getName() +'.'+ grouping2OrderFieldRes.getName(), true));
+                columns.add(getMetadataColumn(dataEntryObjRes.getLocalName() +'.'+ grouping2OrderFieldRes.getLocalName(), true));
             }
             columns.add(getMetadataColumn('CHILD_NAME', false)); // DBM_Data_Entry__c object name
             System.debug('columns = '+ columns);
@@ -281,10 +285,10 @@ public class DBM25Controller {
             List<String> bucketNames = new List<String>();
             for (DBM_Report_Grouping__c grouping : [SELECT Name FROM DBM_Report_Grouping__c WHERE Report__c =: reportDetailsRecordId]) {
                 // String fieldName = 
-                MetadataService.ReportBucketField bucket = getMetadataBucket(dataEntryObjRes.getName() + '.'+ groupingFieldResults[groupingIndex].getName(), grouping.Name, groupingIndex);
+                MetadataService.ReportBucketField bucket = getMetadataBucket(dataEntryObjRes.getLocalName() + '.'+ groupingFieldResults[groupingIndex].getLocalName(), grouping.Name, groupingIndex);
                 buckets.add(bucket);
 
-                String sortByName = dataEntryObjRes.getName() +'.'+ (groupingIndex == 0 ? grouping1OrderFieldRes.getName() : grouping2OrderFieldRes.getName());
+                String sortByName = dataEntryObjRes.getLocalName() +'.'+ (groupingIndex == 0 ? grouping1OrderFieldRes.getLocalName() : grouping2OrderFieldRes.getLocalName());
                 groupings.add(getMetadataGrouping(bucket.developerName, sortByName));
                 groupingIndex++;
             }
@@ -300,7 +304,7 @@ public class DBM25Controller {
             /* End metadata processing */
 
             newReport.type = 'Report';  // type of metadata
-            newReport.reportType = 'CustomEntityCustomEntity$'+ reportObjRes.getName() +'$'+ dataEntryObjRes.getName(); // data source, i.e. sobject(s)
+            newReport.reportType = 'CustomEntityCustomEntity$'+ reportObjRes.getLocalName() +'$'+ dataEntryObjRes.getLocalName(); // data source, i.e. sobject(s)
             newReport.name = reportDetailsRecord.Name.left(apiNameMaxLength);
             newReport.folderName = reportDetailsRecord.Report_Folder_Name__c;
             String developerName = String.isBlank(existingReportDeveloperName) ? 'DBM'+ Datetime.now().getTime() : existingReportDeveloperName;
@@ -453,7 +457,7 @@ public class DBM25Controller {
 
     public static MetadataService.ReportFilter getMetadataFilter(Id reportDetailsRecordId) {
         MetadataService.ReportFilterItem newFilterItem = new MetadataService.ReportFilterItem();
-        // newFilterItem.column = dataEntryObjRes.getName() + '.'+ reportFieldRes.getName();
+        // newFilterItem.column = dataEntryObjRes.getLocalName() + '.'+ reportFieldRes.getLocalName();
         newFilterItem.column = 'CUST_ID';
         system.debug('newFilterItem.column = '+ newFilterItem.column);
         newFilterItem.isUnlocked = true;
@@ -500,7 +504,8 @@ public class DBM25Controller {
         // newChart.title;
 
         MetadataService.ChartSummary chartSummary = new MetadataService.ChartSummary();
-        chartSummary.column = dataEntryObjRes.getName() +'.'+ valueFieldRes.getName();
+        // chartSummary.column = dataEntryObjRes.getLocalName() +'.'+ valueFieldRes.getLocalName();
+        chartSummary.column = FORMULA_NAME;
         chartSummary.aggregate = 'Sum';
         chartSummary.axisBinding = 'y';
 
@@ -515,7 +520,7 @@ public class DBM25Controller {
             datatype = METRIC_TYPE_NUMBER;
         }
         MetadataService.ReportAggregate agg = new MetadataService.ReportAggregate();
-        agg.calculatedFormula = dataEntryObjRes.getName() +'.'+ valueFieldRes.getName() +':SUM';
+        agg.calculatedFormula = dataEntryObjRes.getLocalName() +'.'+ valueFieldRes.getLocalName() +':SUM';
         System.debug('formula column calculatedFormula = '+ agg.calculatedFormula);
         // agg.calculatedFormula = 'DBM_Data_Entry__c.Value__c:SUM';   // For some reason this fails with the namespace included, so I removed it
         if (datatype == METRIC_TYPE_PERCENT) {
@@ -523,7 +528,7 @@ public class DBM25Controller {
             System.debug('adding "/100" to the calculated formula since it\'s a percent');
         }
         agg.datatype = datatype;
-        agg.developerName = 'FORMULA1'; // note: must start with 'FORMULA'
+        agg.developerName = FORMULA_NAME; // note: must start with 'FORMULA'
         agg.isActive = true;
         agg.masterLabel = label;  
         return agg;  
@@ -560,7 +565,7 @@ public class DBM25Controller {
     // Used for testing/debugging purposes
     public static void readReport(String fullName) {
         MetadataService.MetadataPort service = createService();
-        System.debug('reading existing report');
+        System.debug('reading existing report: '+ fullName);
         // 'dbm2__TestDBMFolder/dbm2__Fake1716792392347'
         MetadataService.Report reportToClone = (MetadataService.Report) service.readMetadata('Report', new String[] { fullName }).getRecords()[0];        
         System.debug('aggregates.size = '+ reportToClone.aggregates.size());

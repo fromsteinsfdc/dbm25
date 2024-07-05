@@ -7,14 +7,6 @@
       "versionName": "ver 0.1",
       "versionNumber": "0.1.0.NEXT",
       "versionDescription": ""
-    },
-    {
-      "path": ".",
-      "package": "Dashboard Magic 2",
-      "versionName": "ver 0.1",
-      "versionNumber": "0.1.0.NEXT",
-      "default": false,
-      "versionDescription": ""
     }
   ],
   "name": "Dashboard Magic 2",
