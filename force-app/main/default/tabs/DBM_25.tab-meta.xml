@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CustomTab xmlns="http://soap.sforce.com/2006/04/metadata">
-    <label>DBM 25</label>
+    <label>Dashboard Magic 2</label>
     <lwcComponent>dbmContainer</lwcComponent>
     <motif>Custom86: Red Cross</motif>
 </CustomTab>
