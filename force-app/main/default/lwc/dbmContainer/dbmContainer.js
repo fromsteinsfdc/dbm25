@@ -86,8 +86,11 @@ export default class DbmContainer extends LightningElement {
     showHelpModal = false;
     showContactInfo = false;
 
+    versionNumber = '1.0.0';
+    shortLink = 'http://sfdc.co/dbm2'
     documentationLink = 'https://salesforce.quip.com/4iAgAXt6pK5u';
     slackChannelLink = 'https://salesforce.enterprise.slack.com/archives/C02JG9L59C3';
+    demoVideoLink = 'https://salesforce.vidyard.com/watch/utZ7KSZRDLkxAQ4ictrfNz?';
     feedbackTypeOptions = FEEDBACK_TYPE_OPTIONS;
     feedbackPriorityOptions = FEEDBACK_PRIORITY_OPTIONS;
     feedbackResult;

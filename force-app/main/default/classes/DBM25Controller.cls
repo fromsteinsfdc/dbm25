@@ -8,7 +8,9 @@ public class DBM25Controller {
     public static final String FORMULA_NAME = 'FORMULA1';
     public static final String METRIC_TYPE_PERCENT = 'percent';
     public static final String METRIC_TYPE_NUMBER = 'number';
+    public static final String defaultReportFolderName = 'DashboardMagicReports';
     public static final String notificationEmail = 'dashboardmagic@gmail.com';
+
     
     public static String packageNamespace;
     
@@ -40,6 +42,11 @@ public class DBM25Controller {
             }
             return globalDescribe;
         }
+    }
+
+    @AuraEnabled(cacheable=true)
+    public static String getDefaultReportFolderName() {
+        return defaultReportFolderName;
     }
 
     // Retrieves the package namespace, if applicable, and returns it for use in the LWCs
@@ -253,8 +260,9 @@ public class DBM25Controller {
             MetadataService.Report newReport = new MetadataService.Report();
 
             DBM_Report__c reportDetailsRecord = [SELECT Id, Name, Metric_Label__c, Metric_Type__c, Metric_type_enum__c, Number_of_Groupings__c, Report_ID__c, Report_Folder_Name__c, Chart_Type__c FROM DBM_Report__c WHERE Id =: reportDetailsRecordId];
+
+            // If we're updating an existing report (not creating a new one), find the existing DeveloperName
             String existingReportDeveloperName;
-            // Report existingReport = [SELECT Id FROM Report WHERE Id =: reportDetailsRecord.Report_ID__c];
             if (!String.isBlank(reportDetailsRecord.Report_ID__c)) {
                 List<Report> existingReports = [SELECT Id, DeveloperName FROM Report WHERE Id =: reportDetailsRecord.Report_ID__c];
                 if (existingReports.size() > 0) {
@@ -270,8 +278,8 @@ public class DBM25Controller {
             MetadataService.ReportAggregate[] aggregates = new List<MetadataService.ReportAggregate>();
             MetadataService.ReportFilter filter = new MetadataService.ReportFilter();
             MetadataService.ReportChart chart;// = getMetadataChart(reportDetailsRecord);
-            System.debug('chart = '+ chart);
             
+            // Add as columns the value, grouping 1 order, and (if applicable) grouping 2 order
             columns.add(getMetadataColumn(dataEntryObjRes.getLocalName() +'.'+ valueFieldRes.getLocalName(), true));
             columns.add(getMetadataColumn(dataEntryObjRes.getLocalName() +'.'+ grouping1OrderFieldRes.getLocalName(), true));
             if (reportDetailsRecord.Number_of_Groupings__c == 2) {
@@ -280,11 +288,11 @@ public class DBM25Controller {
             columns.add(getMetadataColumn('CHILD_NAME', false)); // DBM_Data_Entry__c object name
             System.debug('columns = '+ columns);
 
+            // Add each grouping as a bucket
             List<DescribeFieldResult> groupingFieldResults = new DescribeFieldResult[] { grouping1FieldRes, grouping2FieldRes };
             integer groupingIndex = 0;
             List<String> bucketNames = new List<String>();
             for (DBM_Report_Grouping__c grouping : [SELECT Name FROM DBM_Report_Grouping__c WHERE Report__c =: reportDetailsRecordId]) {
-                // String fieldName = 
                 MetadataService.ReportBucketField bucket = getMetadataBucket(dataEntryObjRes.getLocalName() + '.'+ groupingFieldResults[groupingIndex].getLocalName(), grouping.Name, groupingIndex);
                 buckets.add(bucket);
 
@@ -292,14 +300,11 @@ public class DBM25Controller {
                 groupings.add(getMetadataGrouping(bucket.developerName, sortByName));
                 groupingIndex++;
             }
-
             for (MetadataService.ReportBucketField bucket : buckets)
                 System.debug('bucket = '+ bucket.masterLabel +', '+ bucket.sourceColumnName +', '+ bucket.developerName);            
 
+            // Add aggregate, filter, and chart
             aggregates.add(getFormulaColumn(reportDetailsRecord.Metric_Label__c, reportDetailsRecord.Metric_type_enum__c));
-            System.debug(aggregates[0]);
-            System.debug(aggregates[0].masterLabel);
-
             filter = getMetadataFilter(reportDetailsRecord.Id);
             /* End metadata processing */
 
@@ -314,7 +319,7 @@ public class DBM25Controller {
             newReport.aggregates = aggregates;
             newReport.groupingsDown = groupings;
             newReport.filter = filter;
-            newReport.chart = getMetadataChart(reportDetailsRecord.Chart_Type__c, buckets);// chart; // TODO: add chart
+            newReport.chart = getMetadataChart(reportDetailsRecord.Chart_Type__c, buckets);// chart;
             newReport.format = Reports.ReportFormat.SUMMARY.name();
             newReport.scope = 'organization';   // no idea what this does, but it seems to work
             newReport.showDetails = true;   // personal preference            
@@ -337,38 +342,9 @@ public class DBM25Controller {
             // return result;
             if (result.success) {
                 dispatchDbmEvent('Success: '+ result.fullName, true, insertedReport.Id, reportDetailsRecordId);
-                /*
-                DBM_Event__e successEvent = new DBM_Event__e(Report_ID__c = insertedReport.Id, Report_Details_Record_ID__c = reportDetailsRecordId, Message__c = 'Success: '+ result.fullName, Is_Success__c = true);
-                Database.SaveResult messageResult = EventBus.publish(successEvent);
-                if (messageResult.isSuccess()) {
-                    System.debug('Successfully published event.');
-                } else {
-                    String errorMessage = '';
-                    for(Database.Error err : messageResult.getErrors()) {
-                        errorMessage += 'Error returned: ' + err.getStatusCode() + ' - ' + err.getMessage() +'\n';
-                    }
-                    System.debug(errorMessage);
-                    throw new DBM25Exception(errorMessage);
-                } 
-                */
             }
         } catch (Exception e) {
             dispatchDbmEvent('Failure: '+ e.getMessage() +'\r\n'+ e.getLineNumber() +'\r\n', false, null, null);
-            /*
-            DBM_Event__e failureEvent = new DBM_Event__e(Message__c = 'Failure: '+ e.getMessage() +'\r\n'+ e.getLineNumber() +'\r\n', Is_Success__c = false);
-            Database.SaveResult messageResult = EventBus.publish(failureEvent);
-            if (messageResult.isSuccess()) {
-                System.debug('Successfully published failure event.');
-            } else {
-                String errorMessage = '';
-                for(Database.Error err : messageResult.getErrors()) {
-                    // System.debug('Error returned: ' + err.getStatusCode() + ' - ' + err.getMessage());
-                    errorMessage += 'Error returned: ' + err.getStatusCode() + ' - ' + err.getMessage() +'\n';
-                }
-                System.debug(errorMessage);
-                throw new DBM25Exception(errorMessage);
-            }
-            */
         }
     }
 

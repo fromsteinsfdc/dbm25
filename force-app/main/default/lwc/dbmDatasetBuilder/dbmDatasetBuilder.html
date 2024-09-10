@@ -1,13 +1,5 @@
 <template>
-    <!-- <template lwc:if={showSpinner}>
-        <lightning-spinner></lightning-spinner>
-    </template> -->
     <div class="builderContainer slds-grid slds-grid_vertical">
-        <!-- {reportDetailsString} -->
-        <!-- preview pane width: {previewPaneWidth} / content: {contentPaneStyle} -->
-        <!-- {changeLogIndex} / {changeLog.length}<br>
-        {changeLogString} -->
-        <!-- slds-p-horizontal_none slds-m-horizontal_none -->
         <div class="builderHeader slds-grid_vertical-align-center slds-p-vertical_x-small slds-border_bottom">
             <div class="builderActions slds-p-bottom_small slds-clearfix">
                 <div class="leftActions slds-float_left">
@@ -51,7 +43,7 @@
                 <lightning-button label="Previous" onclick={handleBackButtonClick}
                     disabled={backButtonDisabled}></lightning-button>
                 <c-stage-path stages={builderSteps} current-stage-index={currentStepIndex}
-                    onstageclick={handleStepClick} class="slds-col slds-p-horizontal_x-small"></c-stage-path>
+                    onstageclick={handleStepClick} class="slds-col slds-p-horizontal_x-small" enable-navigation></c-stage-path>
                 <lightning-button label="Next" disabled={nextButtonDisabled}
                     onclick={handleNextButtonClick}></lightning-button>
             </div>

@@ -30,13 +30,8 @@ import { EVENTS, METRIC_NAMES, PREVIEW_PANE_SIZES, defaultReportDetails, transfo
 import saveReportDetails from '@salesforce/apex/DBM25Controller.saveReportDetails';
 import createReport from '@salesforce/apex/DBM25Controller.createReport';
 import getReportFolders from '@salesforce/apex/DBM25Controller.getReportFolders';
+import getDefaultReportFolderName from '@salesforce/apex/DBM25Controller.getDefaultReportFolderName';
 import sendFeedback from '@salesforce/apex/DBM25Controller.sendFeedback';
-
-// import DBMREPORT_OBJECT from "@salesforce/schema/DBM_Report__c";
-// import DBMREPORTGROUPING_OBJECT from "@salesforce/schema/DBM_Report_Grouping__c";
-// import DBMREPORTGROUPINGENTRY_OBJECT from "@salesforce/schema/DBM_Report_Grouping_Entry__c";
-// import DBMDATAENTRY_OBJECT from "@salesforce/schema/DBM_Data_Entry__c";
-// import REPORT_NAME_FIELD from "@salesforce/schema/DBM_Report__c.Name";
 
 const PLATFORM_EVENT = {
     EVENT: '/event/',
@@ -55,6 +50,25 @@ const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
 const ERROR_WAIT = 15000;
 export default class DbmDatasetBuilder extends LightningElement {
+    @wire(getDefaultReportFolderName)
+    setDefaultReportFolderName({ error, data }) {
+        if (data) {
+            this.defaultReportFolderName = data;
+            this.populateDefaultReportName();
+            //     console.log(`reportfoldername = ${data}`);
+            //     console.log(`# folders = ${this.reportFolders.length}`);
+            //     this.reportFolders.forEach(folder => {
+            //         console.log(`${folder.DeveloperName}, match = ${folder.DeveloperName === data}`);
+            //     });
+            //     if (!this.reportDetails.folderDeveloperName && this.reportFolders.find(folder => folder.DeveloperName === data)) {
+            //         this.reportDetails.folderDeveloperName = data;
+            //         this.dispatchReportDetails();
+            //     }
+            // } else {
+            //     console.log(`error fetching default report folder name: ${JSON.stringify(error)}`);
+        }
+    }
+
     @api
     get reportDetails() {
         return this._reportDetails;
@@ -87,6 +101,7 @@ export default class DbmDatasetBuilder extends LightningElement {
     finalizeFlag = false;   // Flag set to true the first time the user hits the Finalize stage, which unlocks the save button
 
     defaultReportDetails = { ...this.processReportDetails(defaultReportDetails()) };
+    defaultReportFolderName;
     initialReportDetails;
 
     saveSuccessful;
@@ -317,14 +332,6 @@ export default class DbmDatasetBuilder extends LightningElement {
 
             // Update isDisabled
             grouping.isDisabled = index >= Number(reportDetails.numGroupings)
-
-            // grouping.entries.forEach((entry, index) => {
-            //     entry.number = Number(index) + 1;
-            //     entry.letter = ALPHABET.charAt(index);
-            //     if (index > ALPHABET.length-1) {
-            //         entry.letter = ALPHABET.charAt(ALPHABET.length-1) + (1 + index - ALPHABET.length);
-            //     }
-            // })
         });
         return reportDetails;
     }
@@ -348,6 +355,7 @@ export default class DbmDatasetBuilder extends LightningElement {
     async getReportFolders() {
         try {
             this.reportFolders = await getReportFolders();
+            this.populateDefaultReportName();
         } catch (error) {
             console.log(`Error getting report folders: ${JSON.stringify(error)}`);
         }
@@ -359,7 +367,7 @@ export default class DbmDatasetBuilder extends LightningElement {
             this.saveSuccessful = false;
             this.saveStatus = SAVE_STATUSES.FAILURE;
             this.errorMessage = errorMessage;
-            sendFeedback({ subject: 'Failure', body: errorMessage });
+            sendFeedback({ subject: 'Failure', body: errorMessage + ' <br> ' + this.reportDetailsString });
         } else {
             this.dispatchEvent(new CustomEvent(EVENTS.REFRESH_RECORDS));
             this.saveSuccessful = true;
@@ -404,6 +412,21 @@ export default class DbmDatasetBuilder extends LightningElement {
 
     closeImportModal() {
         this.showImportModal = false;
+    }
+
+    // If we have a list of report folders to compare to, and if we have a default folder name, and if the reportDetails doesn't have a folderDeveloperName value, set it to the default name
+    populateDefaultReportName() {
+        // First confirm that the defaultReportFolderName is indeed a valid report folders        
+        if (this.reportFolders.length && this.defaultReportFolderName && !this.reportDetails.folderDeveloperName) {
+            if (this.reportFolders.find(folder => folder.DeveloperName === this.defaultReportFolderName)) {
+                let updatedReportDetails = {
+                    ...this.reportDetails,
+                    folderDeveloperName: this.defaultReportFolderName
+                }   // I have to do it this way rather than updating this.reportDetails directly because otherwise a change wouldn't be detected. That's probably not ideal...
+                this.updateReportDetails(updatedReportDetails, false);
+                this.resetChangeLog();
+            }
+        }
     }
 
     /* EVENT HANDLERS */
@@ -498,7 +521,6 @@ export default class DbmDatasetBuilder extends LightningElement {
     }
 
     handleCopyToClipboardClick() {
-        // console.log(`in handleCopyToClipboardClick, about to dispatch ${EVENTS.COPY_TO_CLIPBOARD}`);
         const detail = {
             string: this.reportDetailsString
         };
@@ -510,7 +532,7 @@ export default class DbmDatasetBuilder extends LightningElement {
     }
 
     handlePlatformEventReceipt(response) {
-        console.log(`in handlePlatformEventReceipt`);        
+        console.log(`in handlePlatformEventReceipt`);
         const payload = response.data.payload;
         console.log(`payload = ${JSON.stringify(payload)}`);
         const errorMessage = payload[this.prependNamespace(PLATFORM_EVENT.MESSAGE_FIELD)];
@@ -522,6 +544,7 @@ export default class DbmDatasetBuilder extends LightningElement {
         } else {
             this.processSaveResult(errorMessage);
         }
+        console.log(`finished handlePlatformEventReceipt`);
     }
 
     handleUndoClick() {
